@@ -1,121 +1,126 @@
 import { useUserStore } from '@/stores/userStore';
 import { createRouter, createWebHistory } from 'vue-router';
 
+// Ленивая загрузка страниц
 const LoginView = () => import('@/views/auth/LoginView.vue');
 const RegisterView = () => import('@/views/auth/RegisterView.vue');
 const ProfileView = () => import('@/views/auth/ProfileView.vue');
-const AdminCreateView = () => import('@/views/auth/AdminCreateView.vue');
-const MenuView = () => import('@/views/MenuView.vue');
-const CartView = () => import('@/views/CartView.vue');
-const OrdersView = () => import('@/views/OrdersView.vue');
+const ResetPasswordView = () => import('@/views/auth/ResetPasswordView.vue');
+const ChangePasswordView = () => import('@/views/auth/ChangePasswordView.vue');
 
-// Админка
-const DashboardView = () => import('@/views/admin/DashboardView.vue');
-const PizzaListView = () => import('@/views/admin/PizzaListView.vue');
-const PizzaFormView = () => import('@/views/admin/PizzaFormView.vue');
-const SizeListView = () => import('@/views/admin/SizeListView.vue');
-const SizeFormView = () => import('@/views/admin/SizeFormView.vue');
-const AdditiveListView = () => import('@/views/admin/AdditiveListView.vue');
-const AdditiveFormView = () => import('@/views/admin/AdditiveFormView.vue');
-const RelationSizeView = () => import('@/views/admin/RelationSizeView.vue');
-const RelationAdditiveView = () =>
-  import('@/views/admin/RelationAdditiveView.vue');
-const AdminOrdersView = () => import('@/views/admin/AdminOrdersView.vue');
-const OrderDetailView = () => import('@/views/OrderDetailView.vue');
-const PizzaDetailView = () => import('@/views/PizzaDetailView.vue');
-const AdminOrderDetailView = () =>
-  import('@/views/admin/AdminOrderDetailView.vue');
+const HomePage = () => import('@/views/HomePage.vue');
+const AlertListPage = () => import('@/views/alerts/AlertListPage.vue');
+const AlertDetailPage = () => import('@/views/alerts/AlertDetailPage.vue');
+const GlobalAlertListPage = () =>
+  import('@/views/alerts/GlobalAlertListPage.vue');
+const GlobalAlertCreatePage = () =>
+  import('@/views/alerts/GlobalAlertCreatePage.vue');
+const GlobalAlertDetailPage = () =>
+  import('@/views/alerts/GlobalAlertDetailPage.vue');
+const StructurePage = () => import('@/views/structure/StructurePage.vue');
+const UserListPage = () => import('@/views/users/UserListPage.vue');
+const AlertCreatePage = () => import('@/views/alerts/AlertFormPage.vue'); // или AlertFormPage
+const AlertEditPage = () => import('@/views/alerts/AlertFormPage.vue'); // тот же компонент
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    // Публичные
     { path: '/login', component: LoginView },
     { path: '/register', component: RegisterView },
+    { path: '/reset-password', component: ResetPasswordView },
+
+    // Требуют авторизации
     { path: '/profile', component: ProfileView, meta: { requiresAuth: true } },
-    { path: '/cart', component: CartView, meta: { requiresAuth: true } },
-    { path: '/orders', component: OrdersView, meta: { requiresAuth: true } },
     {
-      path: '/orders/:id',
-      component: OrderDetailView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/pizza/:id',
-      component: PizzaDetailView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/',
-      component: () => import('@/views/RouterView.vue'),
+      path: '/change-password',
+      component: ChangePasswordView,
       meta: { requiresAuth: true },
     },
 
-    // Админка
+    // Главная
     {
-      path: '/admin/create',
-      component: AdminCreateView,
+      path: '/',
+      name: 'home',
+      component: HomePage,
+      meta: { requiresAuth: true },
+    },
+
+    // Уведомления (обычные)
+    {
+      path: '/alerts',
+      name: 'alerts',
+      component: AlertListPage,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/alerts/create',
+      name: 'alert-create',
+      component: AlertCreatePage,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin',
-      component: DashboardView,
+      path: '/alerts/:id',
+      name: 'alert-detail',
+      component: AlertDetailPage,
+      meta: { requiresAuth: true },
+    },
+
+    {
+      path: '/alerts/create',
+      name: 'alert-create',
+      component: AlertCreatePage,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/pizzas',
-      component: PizzaListView,
+      path: '/alerts/:id/edit',
+      name: 'alert-edit',
+      component: AlertEditPage,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/pizzas/create',
-      component: PizzaFormView,
+      path: '/alerts/:id',
+      name: 'alert-detail',
+      component: AlertDetailPage,
+      meta: { requiresAuth: true },
+    },
+
+    // Глобальные уведомления
+    {
+      path: '/global-alerts',
+      name: 'global-alerts',
+      component: GlobalAlertListPage,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/global-alerts/create',
+      name: 'global-alert-create',
+      component: GlobalAlertCreatePage,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/pizzas/:id/edit',
-      component: PizzaFormView,
+      path: '/global-alerts/:id',
+      name: 'global-alert-detail',
+      component: GlobalAlertDetailPage,
+      meta: { requiresAuth: true },
+    },
+
+    // Структура и пользователи (админ)
+    {
+      path: '/structure',
+      name: 'structure',
+      component: StructurePage,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/sizes',
-      component: SizeListView,
+      path: '/users',
+      name: 'users',
+      component: UserListPage,
       meta: { requiresAuth: true, admin: true },
     },
-    {
-      path: '/admin/sizes/create',
-      component: SizeFormView,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/admin/additives',
-      component: AdditiveListView,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/admin/additives/create',
-      component: AdditiveFormView,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/admin/relations/size',
-      component: RelationSizeView,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/admin/relations/additive',
-      component: RelationAdditiveView,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/admin/orders',
-      component: AdminOrdersView,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/admin/orders/:id',
-      component: AdminOrderDetailView,
-      meta: { requiresAuth: true, admin: true },
-    },
+
+    // Редирект с несуществующих
+    { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });
 
