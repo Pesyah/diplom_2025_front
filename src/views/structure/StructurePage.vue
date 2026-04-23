@@ -2,7 +2,8 @@
   <div>
     <h1>Управление структурой</h1>
     <p class="text-muted">
-      Поиск пользователей и назначение факультета, кафедры, группы.
+      Поиск пользователей и назначение факультета, кафедры, группы, а также
+      назначение старостой группы.
     </p>
 
     <!-- Поиск пользователя -->
@@ -35,6 +36,13 @@
                 user.email
               }})<br />
               <small class="text-secondary">{{ user.phone }}</small>
+              <span
+                v-if="user.group"
+                class="badge bg-info ms-1"
+                :title="`Группа: ${user.group.name}`"
+              >
+                {{ user.group.groupCode || user.group.name }}
+              </span>
             </div>
             <span class="badge bg-primary rounded-pill">{{
               user.roleType.name
@@ -53,6 +61,29 @@
         <h5 class="card-title">
           Назначение для {{ selectedUser.name }} {{ selectedUser.surname }}
         </h5>
+
+        <!-- Информация о текущих назначениях -->
+        <div
+          v-if="
+            selectedUser.faculty ||
+            selectedUser.department ||
+            selectedUser.group
+          "
+          class="alert alert-info py-2"
+        >
+          <strong>Текущее:</strong>
+          <span v-if="selectedUser.faculty">
+            Факультет:
+            {{ selectedUser.faculty.shortName || selectedUser.faculty.name }}
+          </span>
+          <span v-if="selectedUser.department" class="ms-3">
+            Кафедра: {{ selectedUser.department.name }}
+          </span>
+          <span v-if="selectedUser.group" class="ms-3">
+            Группа: {{ selectedUser.group.name }}
+          </span>
+        </div>
+
         <div class="row">
           <div class="col-md-4">
             <FacultySelector
@@ -76,6 +107,27 @@
             />
           </div>
         </div>
+
+        <!-- Назначение старостой -->
+        <div class="mt-3">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="isElderCheck"
+              v-model="isElder"
+            />
+            <label class="form-check-label" for="isElderCheck">
+              Назначить старостой выбранной группы
+            </label>
+          </div>
+          <small class="text-muted">
+            Если галочка активна, пользователь будет назначен старостой
+            указанной группы. При снятии галочки — права старосты будут
+            отозваны.
+          </small>
+        </div>
+
         <div class="mt-3">
           <button
             class="btn btn-primary"
@@ -124,16 +176,26 @@ const selectedUser = ref<UserStructureInfo | null>(null);
 const selectedFaculty = ref<Faculty | null>(null);
 const selectedDepartment = ref<Department | null>(null);
 const selectedGroup = ref<Group | null>(null);
+const isElder = ref(false);
 
 const assigning = ref(false);
 const assignSuccess = ref(false);
 const assignError = ref('');
 
 // При выборе пользователя сбрасываем выбранные элементы
-watch(selectedUser, () => {
-  selectedFaculty.value = null;
-  selectedDepartment.value = null;
-  selectedGroup.value = null;
+// и подгружаем его текущие структурные назначения
+watch(selectedUser, (user) => {
+  if (user) {
+    selectedFaculty.value = user.faculty || null;
+    selectedDepartment.value = user.department || null;
+    selectedGroup.value = user.group || null;
+    isElder.value = false; // С бэка нужно будет подгружать, если пользователь уже является старостой
+  } else {
+    selectedFaculty.value = null;
+    selectedDepartment.value = null;
+    selectedGroup.value = null;
+    isElder.value = false;
+  }
   assignSuccess.value = false;
   assignError.value = '';
 });
@@ -177,9 +239,16 @@ const assignStructure = async () => {
       facultyId: selectedFaculty.value?.id || 0,
       departmentId: selectedDepartment.value?.id || 0,
       groupId: selectedGroup.value?.id || 0,
+      isElder: isElder.value,
     });
     assignSuccess.value = true;
-    // Обновить данные пользователя в списке?
+
+    // Обновляем локальные данные пользователя
+    if (selectedUser.value) {
+      selectedUser.value.faculty = selectedFaculty.value || undefined;
+      selectedUser.value.department = selectedDepartment.value || undefined;
+      selectedUser.value.group = selectedGroup.value || undefined;
+    }
   } catch (err: any) {
     assignError.value = err.response?.data?.message || 'Ошибка при назначении';
   } finally {
@@ -191,5 +260,6 @@ const clearAssignment = () => {
   selectedFaculty.value = null;
   selectedDepartment.value = null;
   selectedGroup.value = null;
+  isElder.value = false;
 };
 </script>

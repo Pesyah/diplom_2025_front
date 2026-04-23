@@ -21,7 +21,7 @@
         class="list-group-item list-group-item-action"
         @click="selectItem(item)"
       >
-        {{ item.name }} {{ item.code ? `(${item.code})` : '' }}
+        {{ item.name }} {{ item.groupCode ? `(${item.groupCode})` : '' }}
       </button>
     </div>
     <div v-if="selected" class="mt-2 alert alert-success py-1 px-2 small">

@@ -2,7 +2,7 @@
   <nav class="navbar navbar-expand-lg bg-white shadow-sm sticky-top">
     <div class="container">
       <router-link to="/" class="navbar-brand fw-bold">
-        📢 UniNotifier
+        📢 Уведомление студентов
       </router-link>
 
       <button
@@ -24,32 +24,51 @@
                 <router-link to="/" class="nav-link">📊 Дашборд</router-link>
               </li>
               <li class="nav-item">
-                <router-link to="/alerts" class="nav-link">📋 Уведомления</router-link>
+                <router-link to="/alerts" class="nav-link"
+                  >📋 Уведомления</router-link
+                >
               </li>
               <li class="nav-item">
-                <router-link to="/global-alerts" class="nav-link">🌍 Глобальные</router-link>
+                <router-link to="/global-alerts" class="nav-link"
+                  >🌍 Глобальные</router-link
+                >
               </li>
               <li class="nav-item">
-                <router-link to="/structure" class="nav-link">🏛 Структура</router-link>
+                <router-link to="/structure" class="nav-link"
+                  >🏛 Структура</router-link
+                >
               </li>
               <li class="nav-item">
-                <router-link to="/users" class="nav-link">👥 Пользователи</router-link>
+                <router-link to="/users" class="nav-link"
+                  >👥 Пользователи</router-link
+                >
               </li>
             </template>
 
             <!-- Обычный пользователь -->
             <template v-else>
               <li class="nav-item">
-                <router-link to="/" class="nav-link">🔔 Мои уведомления</router-link>
+                <router-link to="/" class="nav-link"
+                  >🔔 Мои уведомления</router-link
+                >
               </li>
               <li class="nav-item">
-                <router-link to="/global-alerts" class="nav-link">🌍 Объявления</router-link>
+                <router-link to="/global-alerts" class="nav-link"
+                  >🌍 Объявления</router-link
+                >
+              </li>
+              <li v-if="userStore.isElder" class="nav-item">
+                <router-link to="/alerts/create" class="nav-link"
+                  >➕ Создать</router-link
+                >
               </li>
             </template>
 
             <!-- Общие для всех -->
             <li class="nav-item">
-              <router-link to="/profile" class="nav-link">👤 Профиль</router-link>
+              <router-link to="/profile" class="nav-link"
+                >👤 Профиль</router-link
+              >
             </li>
             <li class="nav-item">
               <button @click="logout" class="btn btn-outline-danger btn-sm">

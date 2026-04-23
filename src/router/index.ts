@@ -1,7 +1,7 @@
+// router/index.ts
 import { useUserStore } from '@/stores/userStore';
 import { createRouter, createWebHistory } from 'vue-router';
 
-// Ленивая загрузка страниц
 const LoginView = () => import('@/views/auth/LoginView.vue');
 const RegisterView = () => import('@/views/auth/RegisterView.vue');
 const ProfileView = () => import('@/views/auth/ProfileView.vue');
@@ -19,8 +19,7 @@ const GlobalAlertDetailPage = () =>
   import('@/views/alerts/GlobalAlertDetailPage.vue');
 const StructurePage = () => import('@/views/structure/StructurePage.vue');
 const UserListPage = () => import('@/views/users/UserListPage.vue');
-const AlertCreatePage = () => import('@/views/alerts/AlertFormPage.vue'); // или AlertFormPage
-const AlertEditPage = () => import('@/views/alerts/AlertFormPage.vue'); // тот же компонент
+const AlertFormPage = () => import('@/views/alerts/AlertFormPage.vue');
 
 const router = createRouter({
   history: createWebHistory(),
@@ -30,7 +29,7 @@ const router = createRouter({
     { path: '/register', component: RegisterView },
     { path: '/reset-password', component: ResetPasswordView },
 
-    // Требуют авторизации
+    // Авторизованные
     { path: '/profile', component: ProfileView, meta: { requiresAuth: true } },
     {
       path: '/change-password',
@@ -56,33 +55,20 @@ const router = createRouter({
     {
       path: '/alerts/create',
       name: 'alert-create',
-      component: AlertCreatePage,
-      meta: { requiresAuth: true, admin: true },
+      component: AlertFormPage,
+      meta: { requiresAuth: true, canCreateAlerts: true }, // админ или староста
     },
     {
       path: '/alerts/:id',
       name: 'alert-detail',
       component: AlertDetailPage,
       meta: { requiresAuth: true },
-    },
-
-    {
-      path: '/alerts/create',
-      name: 'alert-create',
-      component: AlertCreatePage,
-      meta: { requiresAuth: true, admin: true },
     },
     {
       path: '/alerts/:id/edit',
       name: 'alert-edit',
-      component: AlertEditPage,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/alerts/:id',
-      name: 'alert-detail',
-      component: AlertDetailPage,
-      meta: { requiresAuth: true },
+      component: AlertFormPage,
+      meta: { requiresAuth: true, canCreateAlerts: true }, // админ или староста
     },
 
     // Глобальные уведомления
@@ -105,7 +91,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
-    // Структура и пользователи (админ)
+    // Админские
     {
       path: '/structure',
       name: 'structure',
@@ -119,7 +105,6 @@ const router = createRouter({
       meta: { requiresAuth: true, admin: true },
     },
 
-    // Редирект с несуществующих
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });
@@ -128,12 +113,10 @@ router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token');
   const userStore = useUserStore();
 
-  // Если нет токена и нужна авторизация
   if (to.meta.requiresAuth && !token) {
     return next('/login');
   }
 
-  // Если есть токен, но нет user в store - загружаем
   if (token && !userStore.user) {
     try {
       const client = (await import('@/api/client')).default;
@@ -146,7 +129,12 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // Проверка на админа
-  if (to.meta.admin && userStore.user?.roleType?.name !== 'admin') {
+  if (to.meta.admin && !userStore.isAdmin) {
+    return next('/');
+  }
+
+  // Проверка на возможность создавать уведомления (админ или староста)
+  if (to.meta.canCreateAlerts && !userStore.isAdmin && !userStore.isElder) {
     return next('/');
   }
 

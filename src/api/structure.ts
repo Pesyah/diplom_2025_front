@@ -17,7 +17,7 @@ export interface Department {
 export interface Group {
   id: number;
   name: string;
-  code?: string;
+  groupCode?: string;
   departmentId?: number;
   // другие поля
 }
@@ -64,10 +64,13 @@ export const structureApi = {
     client.get<UserStructureInfo[]>('/structure/users', { params: { query } }),
 
   // Назначение структуры
-  assignStructure: (data: {
+  assignStructure(data: {
     userId: string;
-    groupId?: number;
-    departmentId?: number;
     facultyId?: number;
-  }) => client.post('/structure/assign-structure', data),
+    departmentId?: number;
+    groupId?: number;
+    isElder?: boolean;
+  }) {
+    return client.post('/structure/assign-structure', data);
+  },
 };

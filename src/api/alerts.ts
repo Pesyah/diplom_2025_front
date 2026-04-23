@@ -1,25 +1,28 @@
 import client from './client';
+import { Department, Faculty, Group, UserStructureInfo } from './structure';
 
 export interface Document {
   id: string;
-  url: string;
+  filename: string;
   originalName: string;
+  mimeType: string;
   size: number;
-  mimetype?: string;
+  path: string; // путь к файлу на сервере
+  createdAt?: string;
 }
 
+// api/alerts.ts
 export interface Alert {
   id: string;
   title: string;
   description: string;
-  documents: Document[];
-  alertsTypeId: number;
-  facultyId: number | null;
-  departmentId: number | null;
-  groupId: number | null;
-  createdAt: string;
-  updatedAt: string;
-  // возможно, есть поля faculty, department, group с объектами
+  document: string; // Одна ссылка на документ
+  alertsType: { id: number; name: string; color: string };
+  faculty: Faculty | null;
+  department: Department | null;
+  groups: Group | null;
+  initiator: UserStructureInfo;
+  created_at: string;
 }
 
 export interface GlobalAlert {
@@ -66,18 +69,18 @@ export interface UpdateGlobalAlertDto {
 export const alertsApi = {
   // Обычные уведомления
   getAlerts: (page = 1, limit = 10) =>
-    client.get<{ data: Alert[]; total: number }>('/alerts', {
+    client.get<{ data: Alert[]; total: number }>('/alerts/all', {
       params: { page, limit },
     }),
 
-  getAlertById: (id: string) => client.get<Alert>(`/alerts/${id}`),
+  getAlertById: (id: string) => client.get<Alert>(`/alerts/by-id/${id}`),
 
   createAlert: (data: CreateAlertDto) => client.post<Alert>('/alerts', data),
 
   updateAlert: (id: string, data: UpdateAlertDto) =>
-    client.patch<Alert>(`/alerts/${id}`, data),
+    client.patch<Alert>(`/alerts/update/${id}`, data),
 
-  deleteAlert: (id: string) => client.delete(`/alerts/${id}`),
+  deleteAlert: (id: string) => client.delete(`/alerts/delete/${id}`),
 
   // Глобальные уведомления
   getGlobalAlerts: (page = 1, limit = 10) =>
