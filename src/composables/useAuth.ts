@@ -8,14 +8,18 @@ export const useAuth = () => {
   const router = useRouter();
 
   const login = async (email: string, password: string) => {
-    const res = await client.post('/auth/login', { email, password });
-    localStorage.setItem('token', res.data.access_token);
+    try {
+      const res = await client.post('/auth/login', { email, password });
+      localStorage.setItem('token', res.data.access_token);
 
-    // Получаем данные пользователя
-    const userRes = await client.get('/auth/me');
-    userStore.setUser(userRes.data);
+      // Получаем данные пользователя
+      const userRes = await client.get('/auth/me');
+      userStore.setUser(userRes.data);
 
-    router.push('/');
+      router.push('/');
+    } catch (err: any) {
+      throw err;
+    }
   };
 
   const logout = () => {

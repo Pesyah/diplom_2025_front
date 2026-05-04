@@ -1,121 +1,104 @@
+// src/router/index.ts
 import { useUserStore } from '@/stores/userStore';
 import { createRouter, createWebHistory } from 'vue-router';
 
+// Auth views
 const LoginView = () => import('@/views/auth/LoginView.vue');
 const RegisterView = () => import('@/views/auth/RegisterView.vue');
 const ProfileView = () => import('@/views/auth/ProfileView.vue');
-const AdminCreateView = () => import('@/views/auth/AdminCreateView.vue');
-const MenuView = () => import('@/views/MenuView.vue');
-const CartView = () => import('@/views/CartView.vue');
-const OrdersView = () => import('@/views/OrdersView.vue');
+const CreateAdminView = () => import('@/views/auth/CreateAdminView.vue');
 
-// Админка
-const DashboardView = () => import('@/views/admin/DashboardView.vue');
-const PizzaListView = () => import('@/views/admin/PizzaListView.vue');
-const PizzaFormView = () => import('@/views/admin/PizzaFormView.vue');
-const SizeListView = () => import('@/views/admin/SizeListView.vue');
-const SizeFormView = () => import('@/views/admin/SizeFormView.vue');
-const AdditiveListView = () => import('@/views/admin/AdditiveListView.vue');
-const AdditiveFormView = () => import('@/views/admin/AdditiveFormView.vue');
-const RelationSizeView = () => import('@/views/admin/RelationSizeView.vue');
-const RelationAdditiveView = () =>
-  import('@/views/admin/RelationAdditiveView.vue');
-const AdminOrdersView = () => import('@/views/admin/AdminOrdersView.vue');
-const OrderDetailView = () => import('@/views/OrderDetailView.vue');
-const PizzaDetailView = () => import('@/views/PizzaDetailView.vue');
-const AdminOrderDetailView = () =>
-  import('@/views/admin/AdminOrderDetailView.vue');
+// Admin views
+const AdminProductsView = () => import('@/views/admin/AdminProductsView.vue');
+const AdminProductFormView = () =>
+  import('@/views/admin/AdminProductFormView.vue');
+const AdminBrandsView = () => import('@/views/admin/AdminBrandsView.vue');
+const AdminBrandFormView = () => import('@/views/admin/AdminBrandFormView.vue');
+const AdminBrandDetailView = () =>
+  import('@/views/admin/AdminBrandDetailView.vue');
+const AdminCategoriesView = () =>
+  import('@/views/admin/AdminCategoriesView.vue');
+const AdminCategoryFormView = () =>
+  import('@/views/admin/AdminCategoryFormView.vue');
+
+// Client views
+const HomeView = () => import('@/views/client/HomeView.vue');
+const CatalogView = () => import('@/views/client/CatalogView.vue');
+const ProductDetailView = () => import('@/views/client/ProductDetailView.vue');
+const CartView = () => import('@/views/client/CartView.vue');
+const OrdersView = () => import('@/views/client/OrdersView.vue');
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    // Auth routes
     { path: '/login', component: LoginView },
     { path: '/register', component: RegisterView },
     { path: '/profile', component: ProfileView, meta: { requiresAuth: true } },
-    { path: '/cart', component: CartView, meta: { requiresAuth: true } },
-    { path: '/orders', component: OrdersView, meta: { requiresAuth: true } },
     {
-      path: '/orders/:id',
-      component: OrderDetailView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/pizza/:id',
-      component: PizzaDetailView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/',
-      component: () => import('@/views/RouterView.vue'),
-      meta: { requiresAuth: true },
+      path: '/admin/create-admin',
+      component: CreateAdminView,
+      meta: { requiresAuth: true, admin: true },
     },
 
-    // Админка
+    // Admin routes
     {
-      path: '/admin/create',
-      component: AdminCreateView,
+      path: '/admin/products',
+      component: AdminProductsView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin',
-      component: DashboardView,
+      path: '/admin/products/create',
+      component: AdminProductFormView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/pizzas',
-      component: PizzaListView,
+      path: '/admin/products/:id/edit',
+      component: AdminProductFormView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/pizzas/create',
-      component: PizzaFormView,
+      path: '/admin/brands',
+      component: AdminBrandsView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/pizzas/:id/edit',
-      component: PizzaFormView,
+      path: '/admin/brands/create',
+      component: AdminBrandFormView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/sizes',
-      component: SizeListView,
+      path: '/admin/brands/:id/edit',
+      component: AdminBrandFormView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/sizes/create',
-      component: SizeFormView,
+      path: '/admin/brands/:id',
+      component: AdminBrandDetailView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/additives',
-      component: AdditiveListView,
+      path: '/admin/categories',
+      component: AdminCategoriesView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/additives/create',
-      component: AdditiveFormView,
+      path: '/admin/categories/create',
+      component: AdminCategoryFormView,
       meta: { requiresAuth: true, admin: true },
     },
     {
-      path: '/admin/relations/size',
-      component: RelationSizeView,
+      path: '/admin/categories/:id/edit',
+      component: AdminCategoryFormView,
       meta: { requiresAuth: true, admin: true },
     },
-    {
-      path: '/admin/relations/additive',
-      component: RelationAdditiveView,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/admin/orders',
-      component: AdminOrdersView,
-      meta: { requiresAuth: true, admin: true },
-    },
-    {
-      path: '/admin/orders/:id',
-      component: AdminOrderDetailView,
-      meta: { requiresAuth: true, admin: true },
-    },
+
+    // Client routes
+    { path: '/', component: HomeView },
+    { path: '/catalog', component: CatalogView },
+    { path: '/product/:id', component: ProductDetailView },
+    { path: '/cart', component: CartView, meta: { requiresAuth: true } },
+    { path: '/orders', component: OrdersView, meta: { requiresAuth: true } },
   ],
 });
 
@@ -123,12 +106,10 @@ router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token');
   const userStore = useUserStore();
 
-  // Если нет токена и нужна авторизация
   if (to.meta.requiresAuth && !token) {
     return next('/login');
   }
 
-  // Если есть токен, но нет user в store - загружаем
   if (token && !userStore.user) {
     try {
       const client = (await import('@/api/client')).default;
@@ -140,7 +121,6 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // Проверка на админа
   if (to.meta.admin && userStore.user?.roleType?.name !== 'admin') {
     return next('/');
   }
