@@ -81,47 +81,49 @@
             <div
               class="d-flex justify-content-between align-items-start flex-wrap gap-2"
             >
-              <div class="flex-grow-1">
-                <span
-                  class="badge mb-1"
-                  :style="
-                    item.products
-                      ? 'background-color: #b8a9d4; color: #2d2640'
-                      : 'background-color: #c4b5e3; color: #2d2640'
-                  "
-                >
-                  {{ item.products ? '🥐 Продукт' : '☕ Кофе' }}
-                </span>
-                <h6 class="fw-bold mt-1" style="color: #2d2640">
-                  {{ getItemName(item) }}
-                </h6>
+              <div class="d-flex align-items-start gap-2 flex-grow-1">
                 <img
-                  v-if="item.products?.avatar"
-                  :src="getImageUrl(item.products.avatar)"
-                  :alt="item.products.name"
-                  class="rounded-3 me-2"
+                  :src="getImageUrl(getItemAvatar(item))"
+                  :alt="getItemName(item)"
+                  class="rounded-3"
                   style="width: 48px; height: 48px; object-fit: cover"
                   @error="(e: any) => { e.target.style.display = 'none' }"
                 />
-                <div
-                  v-if="
-                    !item.products &&
-                    item.coffeeAdditiveRelation?.coffeeAdditive?.name
-                  "
-                  class="mt-1"
-                >
-                  <span class="text-muted small"
-                    >Добавка:
-                    {{ item.coffeeAdditiveRelation.coffeeAdditive.name }} (+{{
-                      Number(item.coffeeAdditiveRelation.price).toFixed(2)
-                    }}
-                    ₽)</span
+                <div class="flex-grow-1">
+                  <span
+                    class="badge mb-1"
+                    :style="
+                      item.products
+                        ? 'background-color: #b8a9d4; color: #2d2640'
+                        : 'background-color: #c4b5e3; color: #2d2640'
+                    "
                   >
+                    {{ item.products ? '🥐 Продукт' : '☕ Кофе' }}
+                  </span>
+                  <h6 class="fw-bold mt-1" style="color: #2d2640">
+                    {{ getItemName(item) }}
+                  </h6>
+                  <div
+                    v-if="
+                      !item.products &&
+                      item.coffeeAdditiveRelation?.coffeeAdditive?.name
+                    "
+                    class="mt-1"
+                  >
+                    <span class="text-muted small">
+                      Добавка:
+                      {{ item.coffeeAdditiveRelation.coffeeAdditive.name }} (+{{
+                        Number(item.coffeeAdditiveRelation.price).toFixed(2)
+                      }}
+                      ₽)
+                    </span>
+                  </div>
+                  <p class="small text-muted mb-0 mt-1">
+                    {{ getItemPrice(item).toFixed(2) }} ₽ ×
+                    {{ item.quantity }} =
+                    {{ Number(item.totalValue).toFixed(2) }} ₽
+                  </p>
                 </div>
-                <p class="small text-muted mb-0 mt-1">
-                  {{ getItemPrice(item).toFixed(2) }} ₽ × {{ item.quantity }} =
-                  {{ Number(item.totalValue).toFixed(2) }} ₽
-                </p>
               </div>
               <div class="text-end">
                 <span class="fw-bold" style="color: #4a3f6b"
