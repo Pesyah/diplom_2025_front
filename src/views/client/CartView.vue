@@ -1,90 +1,168 @@
 <!-- src/views/client/CartView.vue -->
 <template>
-  <div class="container">
-    <h2 class="mb-4">🛒 Корзина</h2>
+  <div class="container py-4">
+    <h1 class="fw-bold mb-4" style="color: #4a3f6b">🛒 Корзина</h1>
 
+    <!-- Пустая корзина -->
     <div v-if="cartStore.items.length === 0" class="text-center py-5">
-      <p class="text-muted fs-4">Корзина пуста</p>
-      <router-link to="/catalog" class="btn btn-warning"
-        >Перейти в каталог</router-link
+      <div style="font-size: 4rem">🛒</div>
+      <h3 class="mt-3" style="color: #4a3f6b">Корзина пуста</h3>
+      <p class="text-muted">Добавьте кофе или вкусняшки из меню</p>
+      <router-link
+        to="/menu"
+        class="btn btn-lg mt-2"
+        style="background-color: #4a3f6b; color: #fff; border-radius: 24px"
       >
+        В меню
+      </router-link>
     </div>
 
-    <div v-else class="row">
-      <div class="col-md-8">
-        <div class="card shadow-sm">
+    <!-- Корзина с товарами -->
+    <div v-else class="row g-4">
+      <div class="col-lg-8">
+        <div
+          v-for="(item, index) in cartStore.items"
+          :key="index"
+          class="card shadow-sm mb-3"
+        >
           <div class="card-body">
-            <div
-              v-for="item in cartStore.items"
-              :key="item.productId"
-              class="d-flex align-items-center border-bottom py-3"
-            >
-              <img
-                v-if="item.photo"
-                :src="getImageUrl(item.photo)"
-                class="rounded me-3"
-                style="width: 80px; height: 80px; object-fit: cover"
-              />
+            <div class="d-flex justify-content-between align-items-start">
               <div class="flex-grow-1">
-                <h6 class="mb-1">{{ item.name }}</h6>
-                <small class="text-muted">{{ item.brand }}</small>
-                <p class="text-warning fw-bold mb-0">
-                  {{ formatPrice(item.price) }} ₽
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <span
+                    class="badge"
+                    :style="
+                      item.type === 'coffee'
+                        ? 'background-color: #c4b5e3; color: #2d2640'
+                        : 'background-color: #b8a9d4; color: #2d2640'
+                    "
+                  >
+                    {{ item.type === 'coffee' ? '☕ Кофе' : '🥐 Продукт' }}
+                  </span>
+                </div>
+                <h5 class="fw-bold" style="color: #2d2640">
+                  {{ cartStore.getFormattedItemName(item) }}
+                </h5>
+                <p class="text-muted mb-0">
+                  {{ cartStore.getItemPrice(item) }} ₽ × {{ item.quantity }} =
+                  {{
+                    (cartStore.getItemPrice(item) * item.quantity).toFixed(2)
+                  }}
+                  ₽
                 </p>
               </div>
-              <div class="d-flex align-items-center">
+
+              <div class="d-flex align-items-center gap-2">
+                <div class="input-group input-group-sm" style="width: 110px">
+                  <button
+                    class="btn btn-sm"
+                    style="
+                      background-color: #e8dff5;
+                      color: #4a3f6b;
+                      border: none;
+                    "
+                    @click="cartStore.updateQuantity(index, item.quantity - 1)"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    class="form-control form-control-sm text-center"
+                    style="
+                      background-color: #fff;
+                      border-color: #c4b5e3;
+                      color: #2d2640;
+                    "
+                    :value="item.quantity"
+                    min="1"
+                    @change="
+                      cartStore.updateQuantity(
+                        index,
+                        parseInt(($event.target as HTMLInputElement).value) ||
+                          1,
+                      )
+                    "
+                  />
+                  <button
+                    class="btn btn-sm"
+                    style="
+                      background-color: #e8dff5;
+                      color: #4a3f6b;
+                      border: none;
+                    "
+                    @click="cartStore.updateQuantity(index, item.quantity + 1)"
+                  >
+                    +
+                  </button>
+                </div>
                 <button
-                  @click="decreaseCount(item)"
-                  class="btn btn-outline-secondary btn-sm"
+                  class="btn btn-sm"
+                  style="color: #e74c3c; border: none"
+                  @click="cartStore.removeItem(index)"
                 >
-                  −
-                </button>
-                <span class="mx-2">{{ item.count }}</span>
-                <button
-                  @click="increaseCount(item)"
-                  class="btn btn-outline-secondary btn-sm"
-                >
-                  +
+                  ✕
                 </button>
               </div>
-              <button
-                @click="removeItem(item.productId)"
-                class="btn btn-outline-danger btn-sm ms-3"
-              >
-                🗑️
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="col-md-4">
-        <div class="card shadow-sm">
+      <!-- Итого -->
+      <div class="col-lg-4">
+        <div class="card shadow-sm sticky-top" style="top: 80px">
           <div class="card-body">
-            <h5>Итого:</h5>
-            <p class="fs-3 text-warning fw-bold">
-              {{ formatPrice(cartStore.totalPrice()) }} ₽
-            </p>
-            <p>Товаров: {{ cartStore.itemsCount() }} шт.</p>
+            <h5 class="fw-bold mb-3" style="color: #2d2640">Итого</h5>
+            <div class="d-flex justify-content-between mb-2">
+              <span style="color: #4a3f6b">Товаров:</span>
+              <span class="fw-semibold">{{ cartStore.itemsCount() }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-3">
+              <span style="color: #4a3f6b">Сумма:</span>
+              <span class="fw-bold" style="color: #2d2640; font-size: 1.2rem">
+                {{ cartStore.totalPrice().toFixed(2) }} ₽
+              </span>
+            </div>
 
+            <!-- Комментарий -->
             <div class="mb-3">
-              <label class="form-label">Примечание к заказу</label>
+              <label class="form-label small" style="color: #4a3f6b"
+                >Комментарий к заказу</label
+              >
               <textarea
-                v-model="notes"
-                class="form-control"
-                rows="3"
+                v-model="comment"
+                class="form-control form-control-sm"
+                rows="2"
+                placeholder="Без сахара, пожалуйста..."
+                style="
+                  border-color: #c4b5e3;
+                  background-color: #fff;
+                  color: #2d2640;
+                "
               ></textarea>
             </div>
 
             <button
+              class="btn w-100"
+              style="
+                background-color: #4a3f6b;
+                color: #fff;
+                border-radius: 24px;
+                font-weight: 600;
+              "
               @click="createOrder"
-              class="btn btn-warning w-100"
-              :disabled="ordering"
+              :disabled="creating"
             >
-              {{ ordering ? 'Оформление...' : 'Оформить заказ' }}
+              <span
+                v-if="creating"
+                class="spinner-border spinner-border-sm me-2"
+              ></span>
+              {{ isAuthenticated ? 'Оформить заказ' : 'Войти и заказать' }}
             </button>
-            <p v-if="orderError" class="text-danger mt-2">{{ orderError }}</p>
-            <p v-if="orderSuccess" class="text-success mt-2">Заказ создан!</p>
+
+            <div v-if="orderError" class="alert alert-danger mt-3 py-2 small">
+              {{ orderError }}
+            </div>
           </div>
         </div>
       </div>
@@ -94,62 +172,65 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
-import { useImageUrl } from '@/composables/useImageUrl';
 import { useCartStore } from '@/stores/cartStore';
-import { ref } from 'vue';
+import { useUserStore } from '@/stores/userStore';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-const { getImageUrl } = useImageUrl();
-const cartStore = useCartStore();
 const router = useRouter();
+const userStore = useUserStore();
+const cartStore = useCartStore();
 
-const notes = ref('');
-const ordering = ref(false);
+const isAuthenticated = computed(() => userStore.isAuthenticated);
+const comment = ref('');
+const creating = ref(false);
 const orderError = ref('');
-const orderSuccess = ref(false);
-
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('ru-RU').format(price);
-};
-
-const increaseCount = (item: any) => {
-  cartStore.updateCount(item.productId, item.count + 1);
-};
-
-const decreaseCount = (item: any) => {
-  cartStore.updateCount(item.productId, item.count - 1);
-};
-
-const removeItem = (productId: string) => {
-  cartStore.removeItem(productId);
-};
 
 const createOrder = async () => {
-  if (cartStore.items.length === 0) return;
+  if (!isAuthenticated.value) {
+    router.push('/login');
+    return;
+  }
 
-  ordering.value = true;
+  if (cartStore.items.length === 0) {
+    orderError.value = 'Корзина пуста';
+    return;
+  }
+
+  creating.value = true;
   orderError.value = '';
-  orderSuccess.value = false;
 
   try {
-    await client.post('/orders', {
-      items: cartStore.items.map((item) => ({
-        productId: item.productId,
-        quantity: item.count,
-      })),
-      notes: notes.value,
+    const items = cartStore.items.map((item) => {
+      if (item.type === 'product') {
+        return {
+          productsId: item.productId,
+          quantity: item.quantity,
+        };
+      } else {
+        const coffeeItem: any = {
+          coffeeVolumeRelationId: item.coffeeVolumeRelationId,
+          quantity: item.quantity,
+        };
+        if (item.coffeeAdditiveRelationId) {
+          coffeeItem.coffeeAdditiveRelationId = item.coffeeAdditiveRelationId;
+        }
+        return coffeeItem;
+      }
     });
 
-    orderSuccess.value = true;
-    cartStore.clearCart();
+    await client.post('/orders', {
+      comment: comment.value || '',
+      items,
+    });
 
-    setTimeout(() => {
-      router.push('/orders');
-    }, 1500);
+    cartStore.clearCart();
+    comment.value = '';
+    router.push('/orders');
   } catch (err: any) {
     orderError.value = err.response?.data?.message || 'Ошибка создания заказа';
   } finally {
-    ordering.value = false;
+    creating.value = false;
   }
 };
 </script>

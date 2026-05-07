@@ -1,230 +1,177 @@
 <!-- src/views/admin/AdminProductsView.vue -->
 <template>
-  <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2>📦 Управление продуктами</h2>
-      <router-link to="/admin/products/create" class="btn btn-warning">
-        + Создать продукт
-      </router-link>
+  <div class="container py-4">
+    <div
+      class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3"
+    >
+      <div>
+        <h1 class="fw-bold mb-0" style="color: #4a3f6b">🥐 Продукты</h1>
+        <router-link
+          to="/admin/products/categories"
+          class="btn btn-sm mt-2 sub-nav-btn"
+          >📂 Категории</router-link
+        >
+      </div>
+      <div class="d-flex gap-2">
+        <button
+          class="btn btn-sm"
+          :class="{ active: showDeleted }"
+          @click="showDeleted = !showDeleted"
+          style="border-radius: 20px; border: 2px solid #c4b5e3; color: #4a3f6b"
+          :style="
+            showDeleted
+              ? 'background-color: #4a3f6b; color: #fff !important; border-color: #4a3f6b;'
+              : ''
+          "
+        >
+          🗑 Удаленные
+        </button>
+        <button class="btn add-new-btn" @click="openCreateModal">
+          + Новый продукт
+        </button>
+      </div>
     </div>
 
-    <!-- Фильтры -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <!-- Поисковая строка -->
-        <div class="mb-3">
-          <input
-            v-model="search"
-            type="text"
-            class="form-control"
-            placeholder="Поиск продуктов..."
-            @input="debouncedSearch"
-          />
-        </div>
+    <div v-if="loading" class="text-center py-5">
+      <div class="spinner-border"></div>
+    </div>
+    <div v-else-if="error" class="alert alert-danger">{{ error }}</div>
 
-        <!-- Фильтры с чекбоксами -->
-        <div class="row">
-          <div class="col-md-6">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <strong>Бренды</strong>
-              <button
-                v-if="selectedBrands.length > 0"
-                class="btn btn-link btn-sm text-decoration-none"
-                @click="clearBrands"
+    <div v-else class="row g-4">
+      <div
+        v-for="product in products"
+        :key="product.id"
+        class="col-12 col-md-6 col-lg-4"
+      >
+        <div
+          class="card product-admin-card h-100"
+          :class="{ deleted: product.deleted_at }"
+        >
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <h5 class="fw-bold mb-1" style="color: #2d2640">
+                  {{ product.name }}
+                </h5>
+                <span class="badge category-badge">{{
+                  product.productsCategory?.name
+                }}</span>
+              </div>
+              <span class="fw-bold" style="color: #4a3f6b; font-size: 1.1rem"
+                >{{ Number(product.price).toFixed(2) }} ₽</span
               >
-                Очистить
+            </div>
+            <p class="text-muted small">
+              {{ product.description?.slice(0, 100) }}...
+            </p>
+            <div class="d-flex gap-1">
+              <button
+                v-if="!product.deleted_at"
+                class="btn btn-sm edit-btn"
+                @click="openEditModal(product)"
+              >
+                ✏️
+              </button>
+              <button
+                v-if="!product.deleted_at"
+                class="btn btn-sm delete-btn"
+                @click="softDelete(product.id)"
+              >
+                🗑
+              </button>
+              <button
+                v-if="product.deleted_at"
+                class="btn btn-sm restore-btn"
+                @click="restore(product.id)"
+              >
+                ↩
               </button>
             </div>
-            <div
-              class="border rounded p-2"
-              style="max-height: 200px; overflow-y: auto"
-            >
-              <div v-for="brand in brands" :key="brand.id" class="form-check">
-                <input
-                  :id="`brand-${brand.id}`"
-                  type="checkbox"
-                  class="form-check-input"
-                  :value="brand.id"
-                  v-model="selectedBrands"
-                  @change="onFilterChange"
-                />
-                <label :for="`brand-${brand.id}`" class="form-check-label">
-                  {{ brand.name }}
-                </label>
-              </div>
-              <div v-if="brands.length === 0" class="text-muted small">
-                Загрузка...
-              </div>
-            </div>
           </div>
-
-          <div class="col-md-6">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <strong>Категории</strong>
-              <button
-                v-if="selectedCategories.length > 0"
-                class="btn btn-link btn-sm text-decoration-none"
-                @click="clearCategories"
-              >
-                Очистить
-              </button>
-            </div>
-            <div
-              class="border rounded p-2"
-              style="max-height: 200px; overflow-y: auto"
-            >
-              <div
-                v-for="category in categories"
-                :key="category.id"
-                class="form-check"
-              >
-                <input
-                  :id="`cat-${category.id}`"
-                  type="checkbox"
-                  class="form-check-input"
-                  :value="category.id"
-                  v-model="selectedCategories"
-                  @change="onFilterChange"
-                />
-                <label :for="`cat-${category.id}`" class="form-check-label">
-                  {{ category.name }}
-                </label>
-              </div>
-              <div v-if="categories.length === 0" class="text-muted small">
-                Загрузка...
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Кнопка сброса -->
-        <div v-if="hasActiveFilters" class="mt-3">
-          <button
-            @click="resetAllFilters"
-            class="btn btn-outline-secondary btn-sm"
-          >
-            ✕ Сбросить все фильтры
-          </button>
         </div>
       </div>
     </div>
 
-    <!-- Таблица продуктов -->
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <div v-if="loading" class="text-center py-4">
-          <div class="spinner-border text-warning"></div>
-        </div>
-
-        <div
-          v-else-if="products.length === 0"
-          class="text-center py-4 text-muted"
-        >
-          Продукты не найдены
-        </div>
-
-        <div v-else class="table-responsive">
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th>Фото</th>
-                <th>Название</th>
-                <th>Бренд</th>
-                <th>Цена</th>
-                <th>Кол-во</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="product in products" :key="product.id">
-                <td>
-                  <img
-                    v-if="product.images?.[0]"
-                    :src="getImageUrl(product.images[0])"
-                    :alt="product.name"
-                    class="rounded"
-                    style="width: 60px; height: 60px; object-fit: cover"
-                  />
-                  <div
-                    v-else
-                    class="bg-light rounded d-flex align-items-center justify-content-center"
-                    style="width: 60px; height: 60px"
-                  >
-                    📦
-                  </div>
-                </td>
-                <td>
-                  <span class="fw-bold">{{ product.name }}</span>
-                  <br />
-                  <small class="text-muted"
-                    >{{ product.description?.substring(0, 80) }}...</small
-                  >
-                </td>
-                <td>{{ product.producer?.name || '—' }}</td>
-                <td>
-                  <span class="text-warning fw-bold"
-                    >{{ formatPrice(product.price) }} ₽</span
-                  >
-                </td>
-                <td>
-                  <span
-                    :class="
-                      product.stockQuantity > 0 ? 'text-success' : 'text-danger'
-                    "
-                  >
-                    {{ product.stockQuantity }} шт.
-                  </span>
-                </td>
-                <td>
-                  <div class="btn-group btn-group-sm">
-                    <router-link
-                      :to="`/admin/products/${product.id}/edit`"
-                      class="btn btn-outline-warning"
-                    >
-                      ✏️
-                    </router-link>
-                    <button
-                      @click="deleteProduct(product.id)"
-                      class="btn btn-outline-danger"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Пагинация -->
-        <div v-if="totalPages > 1" class="d-flex justify-content-center mt-3">
-          <nav>
-            <ul class="pagination">
-              <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                <button class="page-link" @click="changePage(currentPage - 1)">
-                  ←
-                </button>
-              </li>
-              <li
-                v-for="page in totalPages"
-                :key="page"
-                class="page-item"
-                :class="{ active: page === currentPage }"
+    <!-- Модалка -->
+    <div class="modal fade" id="productModal" ref="productModalRef">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div
+            class="modal-header"
+            style="
+              background-color: #4a3f6b;
+              color: #fff;
+              border-radius: 16px 16px 0 0;
+            "
+          >
+            <h5 class="modal-title">
+              {{ editingProduct ? 'Редактировать' : 'Новый продукт' }}
+            </h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Название</label>
+              <input
+                v-model="form.name"
+                class="form-control"
+                style="border-color: #c4b5e3"
+              />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Описание</label>
+              <textarea
+                v-model="form.description"
+                class="form-control"
+                rows="3"
+                style="border-color: #c4b5e3"
+              ></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Категория</label>
+              <select
+                v-model="form.productsCategoryId"
+                class="form-select"
+                style="border-color: #c4b5e3"
               >
-                <button class="page-link" @click="changePage(page)">
-                  {{ page }}
-                </button>
-              </li>
-              <li
-                class="page-item"
-                :class="{ disabled: currentPage === totalPages }"
-              >
-                <button class="page-link" @click="changePage(currentPage + 1)">
-                  →
-                </button>
-              </li>
-            </ul>
-          </nav>
+                <option :value="0">Выберите...</option>
+                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                  {{ cat.name }}
+                </option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Цена</label>
+              <input
+                v-model.number="form.price"
+                type="number"
+                step="0.01"
+                class="form-control"
+                style="border-color: #c4b5e3"
+              />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              class="btn"
+              style="background-color: #e8dff5; color: #4a3f6b"
+              data-bs-dismiss="modal"
+            >
+              Отмена
+            </button>
+            <button
+              class="btn"
+              style="background-color: #4a3f6b; color: #fff"
+              @click="saveProduct"
+              :disabled="saving"
+            >
+              Сохранить
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -233,129 +180,177 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
-import { useImageUrl } from '@/composables/useImageUrl';
-import { computed, onMounted, ref } from 'vue';
+import { Modal } from 'bootstrap';
+import { onMounted, ref } from 'vue';
 
-const { getImageUrl } = useImageUrl();
-
+const loading = ref(true);
+const error = ref('');
 const products = ref<any[]>([]);
-const brands = ref<any[]>([]);
 const categories = ref<any[]>([]);
-const loading = ref(false);
-const search = ref('');
-const selectedBrands = ref<string[]>([]);
-const selectedCategories = ref<string[]>([]);
-const currentPage = ref(1);
-const totalPages = ref(1);
-const limit = 20;
+const showDeleted = ref(false);
+const saving = ref(false);
+const editingProduct = ref<any>(null);
+const productModalRef = ref<HTMLElement | null>(null);
+let modalInstance: Modal | null = null;
 
-let searchTimeout: any;
-
-const hasActiveFilters = computed(() => {
-  return (
-    search.value ||
-    selectedBrands.value.length > 0 ||
-    selectedCategories.value.length > 0
-  );
+const form = ref({
+  name: '',
+  description: '',
+  productsCategoryId: 0,
+  price: 0,
 });
 
-const loadRelations = async () => {
-  try {
-    const res = await client.get('/products/all-relations');
-    brands.value = res.data.producers || [];
-    categories.value = res.data.productsCategory || [];
-  } catch (err) {
-    console.error('Error loading relations:', err);
-  }
-};
-
-const loadProducts = async () => {
+const loadData = async () => {
   loading.value = true;
   try {
-    const params: any = {
-      page: currentPage.value,
-      limit,
-    };
-
-    if (search.value) params.search = search.value;
-
-    // Передаем как массивы, paramsSerializer сам преобразует
-    if (selectedBrands.value.length > 0) {
-      params.brandId = selectedBrands.value;
-    }
-
-    if (selectedCategories.value.length > 0) {
-      params.categoryId = selectedCategories.value;
-    }
-
-    console.log('Request params:', params); // Для отладки
-
-    const res = await client.get('/admin/products', { params });
-    products.value = res.data.data || [];
-    totalPages.value = res.data.totalPages || 1;
-  } catch (err) {
-    console.error('Error loading products:', err);
+    const url = showDeleted.value
+      ? '/products/admin/deleted'
+      : '/products/admin/all';
+    const [prodRes, catRes] = await Promise.all([
+      client.get(url),
+      client.get('/products-category/admin/all'),
+    ]);
+    products.value = prodRes.data;
+    categories.value = catRes.data;
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'Ошибка';
   } finally {
     loading.value = false;
   }
 };
 
-const debouncedSearch = () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    currentPage.value = 1;
-    loadProducts();
-  }, 300);
+const openCreateModal = () => {
+  editingProduct.value = null;
+  form.value = { name: '', description: '', productsCategoryId: 0, price: 0 };
+  modalInstance?.show();
 };
 
-const onFilterChange = () => {
-  currentPage.value = 1;
-  loadProducts();
+const openEditModal = (product: any) => {
+  editingProduct.value = product;
+  form.value = {
+    name: product.name,
+    description: product.description,
+    productsCategoryId: product.productsCategory?.id || 0,
+    price: Number(product.price),
+  };
+  modalInstance?.show();
 };
 
-const clearBrands = () => {
-  selectedBrands.value = [];
-  currentPage.value = 1;
-  loadProducts();
-};
-
-const clearCategories = () => {
-  selectedCategories.value = [];
-  currentPage.value = 1;
-  loadProducts();
-};
-
-const resetAllFilters = () => {
-  search.value = '';
-  selectedBrands.value = [];
-  selectedCategories.value = [];
-  currentPage.value = 1;
-  loadProducts();
-};
-
-const changePage = (page: number) => {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-    loadProducts();
+const saveProduct = async () => {
+  saving.value = true;
+  try {
+    const payload = {
+      ...form.value,
+      productsCategoryId: form.value.productsCategoryId || undefined,
+    };
+    if (editingProduct.value) {
+      await client.patch('/products/admin', {
+        id: editingProduct.value.id,
+        ...payload,
+      });
+    } else {
+      await client.post('/products/admin', payload);
+    }
+    modalInstance?.hide();
+    await loadData();
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'Ошибка';
+  } finally {
+    saving.value = false;
   }
 };
 
-const deleteProduct = async (id: string) => {
+const softDelete = async (id: string) => {
   if (!confirm('Удалить продукт?')) return;
   try {
-    await client.delete('/admin/products', { data: { id } });
-    loadProducts();
-  } catch (err) {
-    alert('Ошибка при удалении продукта');
+    await client.delete(`/products/admin/soft/${id}`);
+    await loadData();
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'Ошибка';
   }
 };
 
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('ru-RU').format(price);
+const restore = async (id: string) => {
+  try {
+    await client.post(`/products/admin/restore/${id}`);
+    await loadData();
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'Ошибка';
+  }
 };
 
 onMounted(() => {
-  loadRelations();
-  loadProducts();
+  loadData();
+  if (productModalRef.value) modalInstance = new Modal(productModalRef.value);
 });
 </script>
+
+<style scoped>
+.sub-nav-btn {
+  border-radius: 16px;
+  border: 2px solid #c4b5e3;
+  color: #4a3f6b;
+  background-color: transparent;
+}
+.sub-nav-btn:hover {
+  background-color: #e8dff5;
+}
+.add-new-btn {
+  background-color: #4a3f6b;
+  color: #fff;
+  border-radius: 20px;
+  padding: 0.4rem 1.2rem;
+  border: none;
+}
+.add-new-btn:hover {
+  background-color: #5c4f82;
+}
+.product-admin-card {
+  border-radius: 16px;
+  border: 2px solid #e8dff5;
+  transition: all 0.3s;
+}
+.product-admin-card:hover {
+  border-color: #c4b5e3;
+  box-shadow: 0 8px 24px rgba(74, 63, 107, 0.15);
+}
+.product-admin-card.deleted {
+  opacity: 0.6;
+}
+.category-badge {
+  background-color: #e8dff5;
+  color: #4a3f6b;
+}
+.edit-btn {
+  background-color: #e8dff5;
+  color: #4a3f6b;
+  border: none;
+  border-radius: 8px;
+}
+.edit-btn:hover {
+  background-color: #c4b5e3;
+}
+.delete-btn {
+  background-color: #fde8e8;
+  color: #e74c3c;
+  border: none;
+  border-radius: 8px;
+}
+.delete-btn:hover {
+  background-color: #f5c6cb;
+}
+.restore-btn {
+  background-color: #d4edda;
+  color: #27ae60;
+  border: none;
+  border-radius: 8px;
+}
+.restore-btn:hover {
+  background-color: #c3e6cb;
+}
+.modal-content {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 16px 40px rgba(74, 63, 107, 0.25);
+}
+</style>
