@@ -122,14 +122,7 @@
     <!-- Модалка создания/редактирования -->
     <div class="modal fade" id="coffeeModal" tabindex="-1" ref="coffeeModalRef">
       <div class="modal-dialog">
-        <div
-          class="modal-content"
-          style="
-            border-radius: 16px;
-            border: none;
-            box-shadow: 0 16px 40px rgba(74, 63, 107, 0.25);
-          "
-        >
+        <div class="modal-content">
           <div
             class="modal-header"
             style="
@@ -176,13 +169,47 @@
               />
             </div>
             <div class="mb-3">
-              <label class="form-label">Аватар (URL или загрузка)</label>
-              <input
-                v-model="form.avatar"
-                class="form-control"
-                style="border-color: #c4b5e3"
-                placeholder="https://..."
-              />
+              <label class="form-label">Аватар</label>
+              <div class="d-flex gap-2 align-items-center">
+                <input
+                  v-model="form.avatar"
+                  class="form-control"
+                  style="border-color: #c4b5e3"
+                  placeholder="https://... или загрузите файл"
+                />
+                <button
+                  class="btn btn-sm"
+                  style="
+                    background-color: #e8dff5;
+                    color: #4a3f6b;
+                    white-space: nowrap;
+                    border-radius: 12px;
+                  "
+                  @click="triggerFileInput('coffeeAvatarInput')"
+                  :disabled="uploading"
+                >
+                  <span
+                    v-if="uploading"
+                    class="spinner-border spinner-border-sm me-1"
+                  ></span>
+                  📎 Загрузить
+                </button>
+                <input
+                  type="file"
+                  id="coffeeAvatarInput"
+                  style="display: none"
+                  accept="image/*"
+                  @change="onFileSelected"
+                />
+              </div>
+              <div v-if="form.avatar" class="mt-2">
+                <img
+                  :src="getImageUrl(form.avatar)"
+                  class="rounded-3"
+                  style="width: 80px; height: 80px; object-fit: cover"
+                  @error="handleImageError"
+                />
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -215,10 +242,12 @@
 <script setup lang="ts">
 import client from '@/api/client';
 import { useImageUrl } from '@/composables/useImageUrl';
+import { useUpload } from '@/composables/useUpload';
 import { Modal } from 'bootstrap';
 import { onMounted, ref } from 'vue';
 
 const { getImageUrl } = useImageUrl();
+const { uploadFile, uploading } = useUpload();
 
 const loading = ref(true);
 const error = ref('');
@@ -259,9 +288,26 @@ const openEditModal = (coffee: any) => {
     name: coffee.name,
     description: coffee.description,
     price: Number(coffee.price),
-    avatar: coffee.avatar,
+    avatar: coffee.avatar || '',
   };
   modalInstance?.show();
+};
+
+const triggerFileInput = (inputId: string) => {
+  document.getElementById(inputId)?.click();
+};
+
+const onFileSelected = async (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  try {
+    const result = await uploadFile(file);
+    form.value.avatar = result.url;
+  } catch (err) {
+    error.value = 'Ошибка загрузки файла';
+  }
 };
 
 const saveCoffee = async () => {
@@ -314,9 +360,7 @@ const handleImageError = (e: Event) => {
 
 onMounted(() => {
   loadCoffee();
-  if (coffeeModalRef.value) {
-    modalInstance = new Modal(coffeeModalRef.value);
-  }
+  if (coffeeModalRef.value) modalInstance = new Modal(coffeeModalRef.value);
 });
 </script>
 
@@ -382,5 +426,10 @@ onMounted(() => {
 }
 .restore-btn:hover {
   background-color: #c3e6cb;
+}
+.modal-content {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 16px 40px rgba(74, 63, 107, 0.25);
 }
 </style>

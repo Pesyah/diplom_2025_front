@@ -63,47 +63,54 @@
             <div
               class="d-flex justify-content-between align-items-start flex-wrap gap-2"
             >
-              <div class="flex-grow-1">
-                <span
-                  class="badge mb-1"
-                  :style="
-                    item.products
-                      ? 'background-color: #b8a9d4; color: #2d2640'
-                      : 'background-color: #c4b5e3; color: #2d2640'
-                  "
-                >
-                  {{ item.products ? '🥐 Продукт' : '☕ Кофе' }}
-                </span>
-                <h6 class="fw-bold mt-1" style="color: #2d2640">
-                  {{ getItemName(item) }}
-                </h6>
-
-                <!-- Детали добавок -->
-                <div
-                  v-if="
-                    !item.products &&
-                    item.coffeeAdditiveRelation?.coffeeAdditive?.name
-                  "
-                  class="mt-1"
-                >
-                  <span class="text-muted small">
-                    Добавка:
-                    {{ item.coffeeAdditiveRelation.coffeeAdditive.name }} (+{{
-                      Number(item.coffeeAdditiveRelation.price).toFixed(2)
-                    }}
-                    ₽)
+              <div class="d-flex align-items-start gap-2 flex-grow-1">
+                <img
+                  :src="getImageUrl(getItemAvatar(item))"
+                  :alt="getItemName(item)"
+                  class="rounded-3"
+                  style="width: 48px; height: 48px; object-fit: cover"
+                  @error="(e: any) => { e.target.style.display = 'none' }"
+                />
+                <div class="flex-grow-1">
+                  <span
+                    class="badge mb-1"
+                    :style="
+                      item.products
+                        ? 'background-color: #b8a9d4; color: #2d2640'
+                        : 'background-color: #c4b5e3; color: #2d2640'
+                    "
+                  >
+                    {{ item.products ? '🥐 Продукт' : '☕ Кофе' }}
                   </span>
+                  <h6 class="fw-bold mt-1" style="color: #2d2640">
+                    {{ getItemName(item) }}
+                  </h6>
+                  <div
+                    v-if="
+                      !item.products &&
+                      item.coffeeAdditiveRelation?.coffeeAdditive?.name
+                    "
+                    class="mt-1"
+                  >
+                    <span class="text-muted small">
+                      Добавка:
+                      {{ item.coffeeAdditiveRelation.coffeeAdditive.name }} (+{{
+                        Number(item.coffeeAdditiveRelation.price).toFixed(2)
+                      }}
+                      ₽)
+                    </span>
+                  </div>
+                  <p class="small text-muted mb-0 mt-1">
+                    {{ getItemPrice(item).toFixed(2) }} ₽ ×
+                    {{ item.quantity }} =
+                    {{ Number(item.totalValue).toFixed(2) }} ₽
+                  </p>
                 </div>
-
-                <p class="small text-muted mb-0 mt-1">
-                  {{ getItemPrice(item).toFixed(2) }} ₽ × {{ item.quantity }} =
-                  {{ Number(item.totalValue).toFixed(2) }} ₽
-                </p>
               </div>
               <div class="text-end">
-                <span class="fw-bold" style="color: #4a3f6b">
-                  {{ Number(item.totalValue).toFixed(2) }} ₽
-                </span>
+                <span class="fw-bold" style="color: #4a3f6b"
+                  >{{ Number(item.totalValue).toFixed(2) }} ₽</span
+                >
               </div>
             </div>
           </div>
@@ -138,15 +145,23 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
+import { useImageUrl } from '@/composables/useImageUrl';
 import { onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
-
+const { getImageUrl } = useImageUrl();
 const loading = ref(true);
 const error = ref('');
 const order = ref<any>(null);
 const cancelling = ref(false);
+
+const getItemAvatar = (item: any) => {
+  if (item.products) return item.products.avatar || '';
+  if (item.coffeeVolumeRelation?.coffee)
+    return item.coffeeVolumeRelation.coffee.avatar || '';
+  return '';
+};
 
 const loadOrder = async () => {
   loading.value = true;

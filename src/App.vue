@@ -16,7 +16,7 @@
           style="color: #e8dff5"
         >
           <span class="fs-4">☕</span>
-          <span>Кофйок</span>
+          <span>KAPUchino</span>
         </router-link>
 
         <button

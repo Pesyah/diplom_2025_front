@@ -47,6 +47,34 @@
           class="card product-admin-card h-100"
           :class="{ deleted: product.deleted_at }"
         >
+          <div class="position-relative" style="height: 180px">
+            <img
+              :src="getImageUrl(product.avatar)"
+              :alt="product.name"
+              class="w-100 h-100"
+              style="object-fit: cover; border-radius: 16px 16px 0 0"
+              @error="handleProductImageError"
+            />
+            <div
+              v-if="product.deleted_at"
+              class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+              style="
+                background-color: rgba(231, 76, 60, 0.3);
+                border-radius: 16px 16px 0 0;
+              "
+            >
+              <span
+                class="badge"
+                style="
+                  background-color: #e74c3c;
+                  color: #fff;
+                  font-size: 1rem;
+                  padding: 0.5rem 1rem;
+                "
+                >Удален</span
+              >
+            </div>
+          </div>
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start mb-2">
               <div>
@@ -154,6 +182,49 @@
                 style="border-color: #c4b5e3"
               />
             </div>
+            <div class="mb-3">
+              <label class="form-label">Аватар</label>
+              <div class="d-flex gap-2 align-items-center">
+                <input
+                  v-model="form.avatar"
+                  class="form-control"
+                  style="border-color: #c4b5e3"
+                  placeholder="https://... или загрузите файл"
+                />
+                <button
+                  class="btn btn-sm"
+                  style="
+                    background-color: #e8dff5;
+                    color: #4a3f6b;
+                    white-space: nowrap;
+                    border-radius: 12px;
+                  "
+                  @click="triggerFileInput('productAvatarInput')"
+                  :disabled="uploading"
+                >
+                  <span
+                    v-if="uploading"
+                    class="spinner-border spinner-border-sm me-1"
+                  ></span>
+                  📎 Загрузить
+                </button>
+                <input
+                  type="file"
+                  id="productAvatarInput"
+                  style="display: none"
+                  accept="image/*"
+                  @change="onFileSelected"
+                />
+              </div>
+              <div v-if="form.avatar" class="mt-2">
+                <img
+                  :src="getImageUrl(form.avatar)"
+                  class="rounded-3"
+                  style="width: 80px; height: 80px; object-fit: cover"
+                  @error="handlePreviewImageError"
+                />
+              </div>
+            </div>
           </div>
           <div class="modal-footer">
             <button
@@ -180,8 +251,13 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
+import { useImageUrl } from '@/composables/useImageUrl';
+import { useUpload } from '@/composables/useUpload';
 import { Modal } from 'bootstrap';
 import { onMounted, ref } from 'vue';
+
+const { getImageUrl } = useImageUrl();
+const { uploadFile, uploading } = useUpload();
 
 const loading = ref(true);
 const error = ref('');
@@ -198,6 +274,7 @@ const form = ref({
   description: '',
   productsCategoryId: 0,
   price: 0,
+  avatar: '',
 });
 
 const loadData = async () => {
@@ -221,7 +298,13 @@ const loadData = async () => {
 
 const openCreateModal = () => {
   editingProduct.value = null;
-  form.value = { name: '', description: '', productsCategoryId: 0, price: 0 };
+  form.value = {
+    name: '',
+    description: '',
+    productsCategoryId: 0,
+    price: 0,
+    avatar: '',
+  };
   modalInstance?.show();
 };
 
@@ -232,8 +315,25 @@ const openEditModal = (product: any) => {
     description: product.description,
     productsCategoryId: product.productsCategory?.id || 0,
     price: Number(product.price),
+    avatar: product.avatar || '',
   };
   modalInstance?.show();
+};
+
+const triggerFileInput = (inputId: string) => {
+  document.getElementById(inputId)?.click();
+};
+
+const onFileSelected = async (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    const result = await uploadFile(file);
+    form.value.avatar = result.url;
+  } catch (err) {
+    error.value = 'Ошибка загрузки файла';
+  }
 };
 
 const saveProduct = async () => {
@@ -279,6 +379,20 @@ const restore = async (id: string) => {
   }
 };
 
+const handleProductImageError = (e: Event) => {
+  const img = e.target as HTMLImageElement;
+  img.src =
+    'data:image/svg+xml,' +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180" fill="%23e8dff5"><rect width="300" height="180"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="40">🥐</text></svg>',
+    );
+};
+
+const handlePreviewImageError = (e: Event) => {
+  const img = e.target as HTMLImageElement;
+  img.style.display = 'none';
+};
+
 onMounted(() => {
   loadData();
   if (productModalRef.value) modalInstance = new Modal(productModalRef.value);
@@ -307,6 +421,7 @@ onMounted(() => {
 }
 .product-admin-card {
   border-radius: 16px;
+  overflow: hidden;
   border: 2px solid #e8dff5;
   transition: all 0.3s;
 }

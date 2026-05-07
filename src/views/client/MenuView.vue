@@ -245,6 +245,23 @@
           class="col-12 col-md-6 col-lg-4"
         >
           <div class="card h-100 product-card">
+            <!-- Аватарка продукта -->
+            <div
+              class="position-relative overflow-hidden"
+              style="height: 180px"
+            >
+              <img
+                :src="getImageUrl(product.avatar)"
+                :alt="product.name"
+                class="w-100 h-100"
+                style="
+                  object-fit: cover;
+                  transition: transform 0.4s;
+                  border-radius: 16px 16px 0 0;
+                "
+                @error="handleProductImageError"
+              />
+            </div>
             <div class="card-body d-flex flex-column">
               <div
                 class="d-flex justify-content-between align-items-start mb-2"
@@ -471,6 +488,14 @@ const handleImageError = (e: Event) => {
       '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" fill="%23e8dff5"><rect width="300" height="200"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="40">☕</text></svg>',
     );
 };
+const handleProductImageError = (e: Event) => {
+  const img = e.target as HTMLImageElement;
+  img.src =
+    'data:image/svg+xml,' +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180" fill="%23e8dff5"><rect width="300" height="180"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="40">🥐</text></svg>',
+    );
+};
 
 onMounted(loadData);
 </script>
@@ -656,3 +681,4 @@ onMounted(loadData);
   font-size: 0.85rem;
 }
 </style>
+ф

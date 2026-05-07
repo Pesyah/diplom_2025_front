@@ -95,6 +95,14 @@
                 <h6 class="fw-bold mt-1" style="color: #2d2640">
                   {{ getItemName(item) }}
                 </h6>
+                <img
+                  v-if="item.products?.avatar"
+                  :src="getImageUrl(item.products.avatar)"
+                  :alt="item.products.name"
+                  class="rounded-3 me-2"
+                  style="width: 48px; height: 48px; object-fit: cover"
+                  @error="(e: any) => { e.target.style.display = 'none' }"
+                />
                 <div
                   v-if="
                     !item.products &&
@@ -133,11 +141,12 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
+import { useImageUrl } from '@/composables/useImageUrl';
 import { onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
-
+const { getImageUrl } = useImageUrl();
 const loading = ref(true);
 const error = ref('');
 const order = ref<any>(null);
@@ -148,7 +157,12 @@ const statuses = ref([
   { id: 4, name: 'Выдан' },
   { id: 5, name: 'Отменён' },
 ]);
-
+const getItemAvatar = (item: any) => {
+  if (item.products) return item.products.avatar || '';
+  if (item.coffeeVolumeRelation?.coffee)
+    return item.coffeeVolumeRelation.coffee.avatar || '';
+  return '';
+};
 const loadOrder = async () => {
   loading.value = true;
   try {

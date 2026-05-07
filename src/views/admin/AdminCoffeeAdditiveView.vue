@@ -29,7 +29,7 @@
               :alt="additive.name"
               class="rounded-circle mb-2"
               style="width: 64px; height: 64px; object-fit: cover"
-              @error="(e: any) => { e.target.style.display = 'none' }"
+              @error="handleAdditiveImageError"
             />
             <h6 class="fw-bold" style="color: #2d2640">{{ additive.name }}</h6>
             <div class="d-flex justify-content-center gap-1 mt-2">
@@ -82,13 +82,47 @@
               />
             </div>
             <div class="mb-3">
-              <label class="form-label">Аватар (URL)</label>
-              <input
-                v-model="form.avatar"
-                class="form-control"
-                style="border-color: #c4b5e3"
-                placeholder="https://..."
-              />
+              <label class="form-label">Аватар</label>
+              <div class="d-flex gap-2 align-items-center">
+                <input
+                  v-model="form.avatar"
+                  class="form-control"
+                  style="border-color: #c4b5e3"
+                  placeholder="https://... или загрузите файл"
+                />
+                <button
+                  class="btn btn-sm"
+                  style="
+                    background-color: #e8dff5;
+                    color: #4a3f6b;
+                    white-space: nowrap;
+                    border-radius: 12px;
+                  "
+                  @click="triggerFileInput('additiveAvatarInput')"
+                  :disabled="uploading"
+                >
+                  <span
+                    v-if="uploading"
+                    class="spinner-border spinner-border-sm me-1"
+                  ></span>
+                  📎 Загрузить
+                </button>
+                <input
+                  type="file"
+                  id="additiveAvatarInput"
+                  style="display: none"
+                  accept="image/*"
+                  @change="onFileSelected"
+                />
+              </div>
+              <div v-if="form.avatar" class="mt-2">
+                <img
+                  :src="getImageUrl(form.avatar)"
+                  class="rounded-3"
+                  style="width: 80px; height: 80px; object-fit: cover"
+                  @error="handlePreviewImageError"
+                />
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -117,10 +151,12 @@
 <script setup lang="ts">
 import client from '@/api/client';
 import { useImageUrl } from '@/composables/useImageUrl';
+import { useUpload } from '@/composables/useUpload';
 import { Modal } from 'bootstrap';
 import { onMounted, ref } from 'vue';
 
 const { getImageUrl } = useImageUrl();
+const { uploadFile, uploading } = useUpload();
 
 const loading = ref(true);
 const error = ref('');
@@ -152,8 +188,24 @@ const openCreateModal = () => {
 
 const openEditModal = (additive: any) => {
   editingAdditive.value = additive;
-  form.value = { name: additive.name, avatar: additive.avatar };
+  form.value = { name: additive.name, avatar: additive.avatar || '' };
   modalInstance?.show();
+};
+
+const triggerFileInput = (inputId: string) => {
+  document.getElementById(inputId)?.click();
+};
+
+const onFileSelected = async (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    const result = await uploadFile(file);
+    form.value.avatar = result.url;
+  } catch (err) {
+    error.value = 'Ошибка загрузки файла';
+  }
 };
 
 const saveAdditive = async () => {
@@ -184,6 +236,20 @@ const deleteAdditive = async (id: number) => {
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Ошибка';
   }
+};
+
+const handleAdditiveImageError = (e: Event) => {
+  const img = e.target as HTMLImageElement;
+  img.src =
+    'data:image/svg+xml,' +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="%23e8dff5"><rect width="64" height="64"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="24">➕</text></svg>',
+    );
+};
+
+const handlePreviewImageError = (e: Event) => {
+  const img = e.target as HTMLImageElement;
+  img.style.display = 'none';
 };
 
 onMounted(() => {
