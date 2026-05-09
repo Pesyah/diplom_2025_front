@@ -11,7 +11,7 @@
     >
       <div class="container">
         <router-link
-          :to="isAdmin ? '/admin' : '/menu'"
+          :to="isAdminOrModerator ? '/admin' : '/menu'"
           class="navbar-brand fw-bold d-flex align-items-center gap-2"
           style="color: #e8dff5"
         >
@@ -31,8 +31,8 @@
 
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav me-auto">
-            <!-- Админ навигация -->
-            <template v-if="isAuthenticated && isAdmin">
+            <!-- Админ/Модератор навигация -->
+            <template v-if="isAuthenticated && (isAdmin || isModerator)">
               <li class="nav-item">
                 <router-link
                   to="/admin"
@@ -76,7 +76,7 @@
             </template>
 
             <!-- Клиентское меню -->
-            <template v-else-if="isAuthenticated && !isAdmin">
+            <template v-else-if="isAuthenticated && !isAdmin && !isModerator">
               <li class="nav-item">
                 <router-link
                   to="/menu"
@@ -157,19 +157,40 @@
           </ul>
 
           <ul class="navbar-nav">
-            <li v-if="isAuthenticated" class="nav-item dropdown">
-              <a
-                class="nav-link dropdown-toggle d-flex align-items-center gap-1"
-                href="#"
-                role="button"
-                data-bs-toggle="dropdown"
-                style="color: #e8dff5"
+            <li
+              v-if="isAuthenticated"
+              class="nav-item dropdown-custom"
+              @click.stop
+            >
+              <button
+                class="nav-link d-flex align-items-center gap-1 btn btn-link"
+                type="button"
+                @click="showProfileMenu = !showProfileMenu"
+                style="
+                  color: #e8dff5;
+                  cursor: pointer;
+                  text-decoration: none;
+                  border: none;
+                  background: none;
+                "
               >
                 👤 {{ user?.name || 'Профиль' }}
-              </a>
+                <span class="ms-1" style="font-size: 0.7rem">{{
+                  showProfileMenu ? '▲' : '▼'
+                }}</span>
+              </button>
               <ul
-                class="dropdown-menu dropdown-menu-end"
-                style="background-color: #f5f0eb; border: 1px solid #c4b5e3"
+                v-show="showProfileMenu"
+                class="dropdown-menu dropdown-menu-end show"
+                style="
+                  background-color: #f5f0eb;
+                  border: 1px solid #c4b5e3;
+                  position: absolute;
+                  right: 0;
+                  top: 100%;
+                  z-index: 1000;
+                "
+                @click="showProfileMenu = false"
               >
                 <li>
                   <router-link
@@ -178,6 +199,15 @@
                     style="color: #4a3f6b"
                   >
                     Мой профиль
+                  </router-link>
+                </li>
+                <li v-if="isAdmin">
+                  <router-link
+                    to="/admin/create-admin"
+                    class="dropdown-item"
+                    style="color: #4a3f6b"
+                  >
+                    👤 Создать админа
                   </router-link>
                 </li>
                 <li><hr class="dropdown-divider" /></li>
@@ -221,7 +251,7 @@
 <script setup lang="ts">
 import { useCartStore } from '@/stores/cartStore';
 import { useUserStore } from '@/stores/userStore';
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterView, useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -231,7 +261,35 @@ const cartStore = useCartStore();
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const user = computed(() => userStore.user);
 const isAdmin = computed(() => user.value?.roleType?.name === 'admin');
+const isModerator = computed(() => user.value?.roleType?.name === 'moderator');
+const isAdminOrModerator = computed(() => isAdmin.value || isModerator.value);
 const cartItemsCount = computed(() => cartStore.itemsCount());
+
+const showProfileMenu = ref(false);
+
+// Закрытие при клике вне меню
+const handleClickOutside = (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+  if (!target.closest('.dropdown-custom')) {
+    showProfileMenu.value = false;
+  }
+};
+
+// Закрытие при смене маршрута
+watch(
+  () => router.currentRoute.value.path,
+  () => {
+    showProfileMenu.value = false;
+  },
+);
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 
 const logout = () => {
   userStore.clear();
@@ -241,6 +299,28 @@ const logout = () => {
 </script>
 
 <style>
+.dropdown-custom {
+  position: relative;
+}
+.dropdown-menu {
+  display: block;
+  min-width: 200px;
+  padding: 0.5rem 0;
+  margin: 0.5rem 0 0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(74, 63, 107, 0.2);
+}
+.dropdown-item {
+  padding: 0.5rem 1.5rem;
+  cursor: pointer;
+}
+.dropdown-item:hover {
+  background-color: #e8dff5;
+}
+.dropdown-divider {
+  margin: 0.5rem 0;
+  border-color: #c4b5e3;
+}
 :root {
   --primary-purple: #4a3f6b;
   --light-purple: #c4b5e3;
@@ -250,20 +330,17 @@ const logout = () => {
   --text-dark: #2d2640;
   --text-light: #e8dff5;
 }
-
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
-
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
     Ubuntu, sans-serif;
   background-color: var(--bg-lavender);
   color: var(--text-dark);
 }
-
 .navbar {
   padding: 0.5rem 0;
 }
@@ -278,7 +355,6 @@ body {
   font-weight: 600;
   border-bottom: 2px solid var(--accent-warm);
 }
-
 .card {
   border: 1px solid var(--light-purple);
   background-color: #fff;
@@ -289,7 +365,6 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(74, 63, 107, 0.15);
 }
-
 .table {
   background-color: #fff;
   border-radius: 12px;
@@ -302,18 +377,15 @@ body {
 .table-hover tbody tr:hover {
   background-color: var(--lighter-purple);
 }
-
 .badge-status {
   padding: 0.4rem 0.8rem;
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 500;
 }
-
 .spinner-border {
   color: var(--primary-purple) !important;
 }
-
 .alert {
   border: none;
   border-radius: 12px;
@@ -328,7 +400,6 @@ body {
   color: #27ae60;
   border-left: 4px solid #2ecc71;
 }
-
 .modal-content {
   border-radius: 16px;
   border: none;
@@ -339,7 +410,6 @@ body {
   color: var(--text-light);
   border-radius: 16px 16px 0 0;
 }
-
 ::-webkit-scrollbar {
   width: 8px;
 }

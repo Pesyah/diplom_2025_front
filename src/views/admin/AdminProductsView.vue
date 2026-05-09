@@ -26,7 +26,7 @@
         >
           🗑 Удаленные
         </button>
-        <button class="btn add-new-btn" @click="openCreateModal">
+        <button v-if="isAdmin" class="btn add-new-btn" @click="openCreateModal">
           + Новый продукт
         </button>
       </div>
@@ -94,21 +94,21 @@
             </p>
             <div class="d-flex gap-1">
               <button
-                v-if="!product.deleted_at"
+                v-if="isAdmin && !product.deleted_at"
                 class="btn btn-sm edit-btn"
                 @click="openEditModal(product)"
               >
                 ✏️
               </button>
               <button
-                v-if="!product.deleted_at"
+                v-if="(isAdmin || isModerator) && !product.deleted_at"
                 class="btn btn-sm delete-btn"
                 @click="softDelete(product.id)"
               >
                 🗑
               </button>
               <button
-                v-if="product.deleted_at"
+                v-if="(isAdmin || isModerator) && product.deleted_at"
                 class="btn btn-sm restore-btn"
                 @click="restore(product.id)"
               >
@@ -120,7 +120,7 @@
       </div>
     </div>
 
-    <!-- Модалка -->
+    <!-- Модалка (только для админа) -->
     <div class="modal fade" id="productModal" ref="productModalRef">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -253,11 +253,18 @@
 import client from '@/api/client';
 import { useImageUrl } from '@/composables/useImageUrl';
 import { useUpload } from '@/composables/useUpload';
+import { useUserStore } from '@/stores/userStore';
 import { Modal } from 'bootstrap';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const { getImageUrl } = useImageUrl();
 const { uploadFile, uploading } = useUpload();
+const userStore = useUserStore();
+
+const isAdmin = computed(() => userStore.user?.roleType?.name === 'admin');
+const isModerator = computed(
+  () => userStore.user?.roleType?.name === 'moderator',
+);
 
 const loading = ref(true);
 const error = ref('');
@@ -297,6 +304,7 @@ const loadData = async () => {
 };
 
 const openCreateModal = () => {
+  if (!isAdmin.value) return;
   editingProduct.value = null;
   form.value = {
     name: '',
@@ -309,6 +317,7 @@ const openCreateModal = () => {
 };
 
 const openEditModal = (product: any) => {
+  if (!isAdmin.value) return;
   editingProduct.value = product;
   form.value = {
     name: product.name,
@@ -337,6 +346,7 @@ const onFileSelected = async (e: Event) => {
 };
 
 const saveProduct = async () => {
+  if (!isAdmin.value) return;
   saving.value = true;
   try {
     const payload = {
@@ -361,7 +371,7 @@ const saveProduct = async () => {
 };
 
 const softDelete = async (id: string) => {
-  if (!confirm('Удалить продукт?')) return;
+  if (!confirm('Скрыть продукт?')) return;
   try {
     await client.delete(`/products/admin/soft/${id}`);
     await loadData();

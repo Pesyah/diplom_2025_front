@@ -35,8 +35,8 @@ const router = createRouter({
   routes: [
     // Public
     { path: '/', redirect: '/menu' },
-    { path: '/menu', component: MenuView },
-    { path: '/cart', component: CartView },
+    { path: '/menu', component: MenuView, meta: { clientOnly: true } },
+    { path: '/cart', component: CartView, meta: { clientOnly: true } },
 
     // Auth routes
     { path: '/login', component: LoginView },
@@ -49,66 +49,66 @@ const router = createRouter({
     {
       path: '/admin/create-admin',
       component: CreateAdminView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, adminOnly: true },
     },
 
     // Client (user)
     {
       path: '/orders',
       component: OrdersView,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, clientOnly: true },
     },
     {
       path: '/orders/:id',
       component: OrderDetailView,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, clientOnly: true },
     },
 
-    // Admin
+    // Admin & Moderator
     {
       path: '/admin',
       component: AdminDashboardView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, staff: true },
     },
     {
       path: '/admin/coffee',
       component: AdminCoffeeView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, staff: true },
     },
     {
       path: '/admin/coffee/volumes',
       component: AdminCoffeeVolumeView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, adminOnly: true },
     },
     {
       path: '/admin/coffee/additives',
       component: AdminCoffeeAdditiveView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, adminOnly: true },
     },
     {
       path: '/admin/coffee/relations',
       component: AdminCoffeeRelationsView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, adminOnly: true },
     },
     {
       path: '/admin/products',
       component: AdminProductsView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, staff: true },
     },
     {
       path: '/admin/products/categories',
       component: AdminProductCategoriesView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, adminOnly: true },
     },
     {
       path: '/admin/orders',
       component: AdminOrdersView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, staff: true },
     },
     {
       path: '/admin/orders/:id',
       component: AdminOrderDetailView,
-      meta: { requiresAuth: true, admin: true },
+      meta: { requiresAuth: true, staff: true },
     },
   ],
 });
@@ -117,10 +117,12 @@ router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token');
   const userStore = useUserStore();
 
+  // Проверка авторизации
   if (to.meta.requiresAuth && !token) {
     return next('/login');
   }
 
+  // Загрузка пользователя если есть токен но нет данных
   if (token && !userStore.user) {
     try {
       const client = (await import('@/api/client')).default;
@@ -132,8 +134,32 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  if (to.meta.admin && userStore.user?.roleType?.name !== 'admin') {
+  const role = userStore.user?.roleType?.name;
+  const isAdmin = role === 'admin';
+  const isModerator = role === 'moderator';
+  const isStaff = isAdmin || isModerator;
+
+  // Админ/модератор пытается зайти на клиентские страницы — редирект в админку
+  if (isStaff && to.meta.clientOnly) {
+    return next('/admin');
+  }
+
+  // Не staff пытается зайти в staff-зону — редирект в меню
+  if (to.meta.staff && !isStaff) {
     return next('/menu');
+  }
+
+  // Не админ пытается зайти в adminOnly — редирект в админ-дашборд
+  if (to.meta.adminOnly && !isAdmin) {
+    return next('/admin');
+  }
+
+  // Админ/модератор заходит на корень или клиентские — редирект в админку
+  if (
+    isStaff &&
+    (to.path === '/' || to.path === '/menu' || to.path === '/cart')
+  ) {
+    return next('/admin');
   }
 
   next();

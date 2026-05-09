@@ -6,7 +6,7 @@
     >
       <div>
         <h1 class="fw-bold mb-0" style="color: #4a3f6b">☕ Управление кофе</h1>
-        <div class="mt-2">
+        <div class="mt-2" v-if="isAdmin">
           <router-link
             to="/admin/coffee/volumes"
             class="btn btn-sm me-2 sub-nav-btn"
@@ -38,7 +38,7 @@
         >
           🗑 Удаленные
         </button>
-        <button class="btn add-new-btn" @click="openCreateModal">
+        <button v-if="isAdmin" class="btn add-new-btn" @click="openCreateModal">
           + Новый кофе
         </button>
       </div>
@@ -86,40 +86,35 @@
             <p class="text-muted small">
               {{ coffee.description?.slice(0, 80) }}...
             </p>
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="fw-bold" style="color: #4a3f6b"
-                >{{ Number(coffee.price).toFixed(2) }} ₽</span
+            <div class="d-flex gap-1">
+              <button
+                v-if="isAdmin && !coffee.deleted_at"
+                class="btn btn-sm edit-btn"
+                @click="openEditModal(coffee)"
               >
-              <div class="d-flex gap-1">
-                <button
-                  v-if="!coffee.deleted_at"
-                  class="btn btn-sm edit-btn"
-                  @click="openEditModal(coffee)"
-                >
-                  ✏️
-                </button>
-                <button
-                  v-if="!coffee.deleted_at"
-                  class="btn btn-sm delete-btn"
-                  @click="softDelete(coffee.id)"
-                >
-                  🗑
-                </button>
-                <button
-                  v-if="coffee.deleted_at"
-                  class="btn btn-sm restore-btn"
-                  @click="restore(coffee.id)"
-                >
-                  ↩
-                </button>
-              </div>
+                ✏️
+              </button>
+              <button
+                v-if="(isAdmin || isModerator) && !coffee.deleted_at"
+                class="btn btn-sm delete-btn"
+                @click="softDelete(coffee.id)"
+              >
+                🗑
+              </button>
+              <button
+                v-if="(isAdmin || isModerator) && coffee.deleted_at"
+                class="btn btn-sm restore-btn"
+                @click="restore(coffee.id)"
+              >
+                ↩
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Модалка создания/редактирования -->
+    <!-- Модалка создания/редактирования (только для админа) -->
     <div class="modal fade" id="coffeeModal" tabindex="-1" ref="coffeeModalRef">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -157,16 +152,6 @@
                 rows="3"
                 style="border-color: #c4b5e3"
               ></textarea>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Цена (базовая)</label>
-              <input
-                v-model.number="form.price"
-                type="number"
-                step="0.01"
-                class="form-control"
-                style="border-color: #c4b5e3"
-              />
             </div>
             <div class="mb-3">
               <label class="form-label">Аватар</label>
@@ -243,11 +228,18 @@
 import client from '@/api/client';
 import { useImageUrl } from '@/composables/useImageUrl';
 import { useUpload } from '@/composables/useUpload';
+import { useUserStore } from '@/stores/userStore';
 import { Modal } from 'bootstrap';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const { getImageUrl } = useImageUrl();
 const { uploadFile, uploading } = useUpload();
+const userStore = useUserStore();
+
+const isAdmin = computed(() => userStore.user?.roleType?.name === 'admin');
+const isModerator = computed(
+  () => userStore.user?.roleType?.name === 'moderator',
+);
 
 const loading = ref(true);
 const error = ref('');
@@ -258,7 +250,7 @@ const editingCoffee = ref<any>(null);
 const coffeeModalRef = ref<HTMLElement | null>(null);
 let modalInstance: Modal | null = null;
 
-const form = ref({ name: '', description: '', price: 0, avatar: '' });
+const form = ref({ name: '', description: '', avatar: '' });
 
 const loadCoffee = async () => {
   loading.value = true;
@@ -277,17 +269,18 @@ const loadCoffee = async () => {
 };
 
 const openCreateModal = () => {
+  if (!isAdmin.value) return;
   editingCoffee.value = null;
-  form.value = { name: '', description: '', price: 0, avatar: '' };
+  form.value = { name: '', description: '', avatar: '' };
   modalInstance?.show();
 };
 
 const openEditModal = (coffee: any) => {
+  if (!isAdmin.value) return;
   editingCoffee.value = coffee;
   form.value = {
     name: coffee.name,
     description: coffee.description,
-    price: Number(coffee.price),
     avatar: coffee.avatar || '',
   };
   modalInstance?.show();
@@ -301,7 +294,6 @@ const onFileSelected = async (e: Event) => {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) return;
-
   try {
     const result = await uploadFile(file);
     form.value.avatar = result.url;
@@ -311,6 +303,7 @@ const onFileSelected = async (e: Event) => {
 };
 
 const saveCoffee = async () => {
+  if (!isAdmin.value) return;
   saving.value = true;
   try {
     if (editingCoffee.value) {
@@ -331,7 +324,7 @@ const saveCoffee = async () => {
 };
 
 const softDelete = async (id: string) => {
-  if (!confirm('Удалить кофе?')) return;
+  if (!confirm('Скрыть кофе?')) return;
   try {
     await client.delete(`/coffee/admin/soft/${id}`);
     await loadCoffee();

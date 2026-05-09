@@ -53,7 +53,7 @@
         </router-link>
       </div>
 
-      <div class="col-12 col-md-6 col-lg-4">
+      <div v-if="isAdmin" class="col-12 col-md-6 col-lg-4">
         <router-link to="/admin/create-admin" class="text-decoration-none">
           <div class="plate-card">
             <div class="plate-icon">👤</div>
@@ -65,6 +65,14 @@
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { useUserStore } from '@/stores/userStore';
+import { computed } from 'vue';
+
+const userStore = useUserStore();
+const isAdmin = computed(() => userStore.user?.roleType?.name === 'admin');
+</script>
 
 <style scoped>
 .plate-card {

@@ -64,7 +64,10 @@
           :key="coffee.id"
           class="col-12 col-md-6 col-lg-4"
         >
-          <div class="card h-100 coffee-card">
+          <div
+            class="card h-100 coffee-card"
+            v-if="coffee.coffeeVolumeRelation.length !== 0"
+          >
             <div
               class="position-relative overflow-hidden"
               style="height: 200px"
