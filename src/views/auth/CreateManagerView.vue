@@ -1,15 +1,13 @@
-<!-- src/views/auth/CreateAdminView.vue -->
+<!-- src/views/auth/CreateManagerView.vue -->
 <template>
   <div class="container">
     <div class="row justify-content-center mt-4">
       <div class="col-md-6">
         <div class="card shadow">
           <div class="card-body p-4">
-            <h2 class="text-center mb-4">Создать администратора</h2>
+            <h2 class="text-center mb-4">Создать менеджера</h2>
             <p v-if="error" class="alert alert-danger">{{ error }}</p>
-            <p v-if="success" class="alert alert-success">
-              Администратор создан!
-            </p>
+            <p v-if="success" class="alert alert-success">Менеджер создан!</p>
 
             <form @submit.prevent="handleSubmit">
               <div class="row">
@@ -64,7 +62,7 @@
                 class="btn btn-warning w-100"
                 :disabled="loading"
               >
-                {{ loading ? 'Создание...' : 'Создать администратора' }}
+                {{ loading ? 'Создание...' : 'Создать менеджера' }}
               </button>
             </form>
           </div>
@@ -99,8 +97,7 @@ const handleSubmit = async () => {
     success.value = true;
     form.value = { name: '', surname: '', phone: '', email: '', password: '' };
   } catch (err: any) {
-    error.value =
-      err.response?.data?.message || 'Ошибка создания администратора';
+    error.value = err.response?.data?.message || 'Ошибка создания менеджера';
   } finally {
     loading.value = false;
   }
