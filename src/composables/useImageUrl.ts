@@ -2,7 +2,7 @@ import { config } from '@/config';
 
 // src/composables/useImageUrl.ts
 export const useImageUrl = () => {
-  const getImageUrl = (path: string) => {
+  const getImageUrl = (path?: string | null) => {
     if (!path) return '';
 
     // Если это уже полный URL - возвращаем как есть
@@ -11,14 +11,15 @@ export const useImageUrl = () => {
     }
 
     // Нормализуем путь (меняем обратные слеши на прямые)
-    let normalizedPath = path.replace(/\\/g, '/');
+    const apiUrl = config.apiUrl.replace(/\/+$/, '');
+    let normalizedPath = path.trim().replace(/\\/g, '/');
 
     // Убираем начальный слеш если есть
     if (normalizedPath.startsWith('/')) {
       normalizedPath = normalizedPath.substring(1);
     }
 
-    return `${config.apiUrl}/${normalizedPath}`;
+    return `${apiUrl}/${normalizedPath}`;
   };
 
   return { getImageUrl };

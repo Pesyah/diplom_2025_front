@@ -28,15 +28,53 @@
         <div class="col-lg-8">
           <div class="card shadow-sm">
             <div
-              class="card-img-top d-flex align-items-center justify-content-center"
-              style="
-                height: 350px;
-                background-color: #bfc9ed;
-                color: #4c4993;
-                font-size: 5rem;
-              "
+              class="card-img-top room-photo-wrapper d-flex align-items-center justify-content-center"
             >
+              <img
+                v-if="mainPhotoUrl"
+                class="room-photo"
+                :src="mainPhotoUrl"
+                :alt="`${room.roomsType?.name || 'Номер'} №${room.roomNumber}`"
+                @error="handleImageError"
+              />
+              <template v-if="photoUrls.length > 1">
+                <button
+                  type="button"
+                  class="photo-nav photo-nav-prev"
+                  aria-label="Previous photo"
+                  @click="showPreviousPhoto"
+                >
+                  &lsaquo;
+                </button>
+                <button
+                  type="button"
+                  class="photo-nav photo-nav-next"
+                  aria-label="Next photo"
+                  @click="showNextPhoto"
+                >
+                  &rsaquo;
+                </button>
+                <div class="photo-counter">
+                  {{ selectedPhotoIndex + 1 }} / {{ photoUrls.length }}
+                </div>
+              </template>
               🏨
+            </div>
+            <div v-if="photoUrls.length > 1" class="room-thumbnails">
+              <button
+                v-for="(photoUrl, index) in photoUrls"
+                :key="`${photoUrl}-${index}`"
+                type="button"
+                class="room-thumbnail"
+                :class="{ active: index === selectedPhotoIndex }"
+                @click="selectedPhotoIndex = index"
+              >
+                <img
+                  :src="photoUrl"
+                  :alt="`Photo ${index + 1}`"
+                  @error="handleImageError"
+                />
+              </button>
             </div>
             <div class="card-body">
               <div
@@ -158,6 +196,7 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
+import { useImageUrl } from '@/composables/useImageUrl';
 import { useUserStore } from '@/stores/userStore';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -183,11 +222,17 @@ interface Room {
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const { getImageUrl } = useImageUrl();
 
 const room = ref<Room | null>(null);
 const loading = ref(true);
+const selectedPhotoIndex = ref(0);
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const isGuest = computed(() => userStore.user?.roleType?.name === 'guest');
+const photoUrls = computed(() =>
+  room.value?.photos?.map((photo) => getImageUrl(photo)) ?? [],
+);
+const mainPhotoUrl = computed(() => photoUrls.value[selectedPhotoIndex.value] ?? '');
 const canBook = computed(
   () =>
     isAuthenticated.value && isGuest.value && room.value?.roomsStatus?.id === 1,
@@ -204,10 +249,30 @@ const goToBooking = () => {
   router.push(`/booking/${route.params.id}`);
 };
 
+const showPreviousPhoto = () => {
+  if (photoUrls.value.length <= 1) return;
+
+  selectedPhotoIndex.value =
+    (selectedPhotoIndex.value - 1 + photoUrls.value.length) % photoUrls.value.length;
+};
+
+const showNextPhoto = () => {
+  if (photoUrls.value.length <= 1) return;
+
+  selectedPhotoIndex.value =
+    (selectedPhotoIndex.value + 1) % photoUrls.value.length;
+};
+
+const handleImageError = (event: Event) => {
+  const image = event.target as HTMLImageElement;
+  image.style.display = 'none';
+};
+
 onMounted(async () => {
   try {
     const res = await client.get(`/rooms/by-id/${route.params.id}`);
     room.value = res.data;
+    selectedPhotoIndex.value = 0;
   } catch (err) {
     console.error('Ошибка загрузки номера:', err);
   } finally {
@@ -215,3 +280,87 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.room-photo-wrapper {
+  height: 350px;
+  background-color: #bfc9ed;
+  color: #4c4993;
+  font-size: 5rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.room-photo {
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  position: absolute;
+  width: 100%;
+}
+
+.photo-nav {
+  align-items: center;
+  background-color: rgba(45, 38, 64, 0.65);
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  font-size: 2rem;
+  height: 42px;
+  justify-content: center;
+  line-height: 1;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  z-index: 2;
+}
+
+.photo-nav-prev {
+  left: 16px;
+}
+
+.photo-nav-next {
+  right: 16px;
+}
+
+.photo-counter {
+  background-color: rgba(45, 38, 64, 0.75);
+  border-radius: 999px;
+  bottom: 14px;
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 7px 12px;
+  position: absolute;
+  right: 14px;
+  z-index: 2;
+}
+
+.room-thumbnails {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  padding: 12px;
+}
+
+.room-thumbnail {
+  aspect-ratio: 4 / 3;
+  background-color: #bfc9ed;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.room-thumbnail.active {
+  border-color: #4c4993;
+}
+
+.room-thumbnail img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+</style>

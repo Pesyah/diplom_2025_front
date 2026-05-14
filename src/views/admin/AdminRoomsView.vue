@@ -256,12 +256,40 @@
                 </div>
               </div>
               <div class="mb-3">
-                <label class="form-label">Фото (через запятую)</label>
+                <label class="form-label">Фото</label>
                 <input
-                  v-model="photosStr"
                   class="form-control"
-                  placeholder="photo1.jpg, photo2.jpg"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  :disabled="loading || uploading"
+                  @change="handlePhotoUpload"
                 />
+                <div v-if="uploading" class="form-text">Загрузка фото...</div>
+                <div v-if="uploadError" class="text-danger small mt-1">
+                  {{ uploadError }}
+                </div>
+                <div v-if="photoPaths.length" class="room-photo-list mt-3">
+                  <div
+                    v-for="(photo, index) in photoPaths"
+                    :key="photo"
+                    class="room-photo-item"
+                  >
+                    <img
+                      :src="getImageUrl(photo)"
+                      :alt="`Фото ${index + 1}`"
+                      @error="handlePreviewError"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-danger"
+                      :disabled="loading || uploading"
+                      @click="removePhoto(index)"
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </div>
               </div>
               <div class="d-flex justify-content-end gap-2">
                 <button
@@ -275,7 +303,7 @@
                   type="submit"
                   class="btn"
                   style="background-color: #4c4993; color: #fff"
-                  :disabled="loading"
+                  :disabled="loading || uploading"
                 >
                   {{ loading ? 'Сохранение...' : 'Сохранить' }}
                 </button>
@@ -334,6 +362,8 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
+import { useImageUrl } from '@/composables/useImageUrl';
+import { useUpload } from '@/composables/useUpload';
 import { useUserStore } from '@/stores/userStore';
 import { computed, onMounted, ref } from 'vue';
 
@@ -367,6 +397,8 @@ interface Room {
 
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.user?.roleType?.name === 'admin');
+const { getImageUrl } = useImageUrl();
+const { uploadFile, uploading, uploadError } = useUpload();
 
 const rooms = ref<Room[]>([]);
 const amenities = ref<Amenity[]>([]);
@@ -377,7 +409,7 @@ const error = ref('');
 
 const showModal = ref(false);
 const editingRoom = ref<Room | null>(null);
-const photosStr = ref('');
+const photoPaths = ref<string[]>([]);
 const form = ref({
   roomNumber: '',
   roomsTypeId: 1,
@@ -434,7 +466,7 @@ const resetForm = () => {
     description: '',
     amenityIds: [],
   };
-  photosStr.value = '';
+  photoPaths.value = [];
   error.value = '';
 };
 
@@ -457,7 +489,7 @@ const openEditModal = (room: Room) => {
     description: room.description || '',
     amenityIds: room.amenities?.map((a) => a.id) ?? [],
   };
-  photosStr.value = room.photos?.join(', ') ?? '';
+  photoPaths.value = [...(room.photos ?? [])];
   error.value = '';
   showModal.value = true;
 };
@@ -467,18 +499,49 @@ const closeModal = () => {
   editingRoom.value = null;
 };
 
+const handlePhotoUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []);
+
+  if (!files.length) return;
+
+  error.value = '';
+
+  try {
+    for (const file of files) {
+      const uploaded = (await uploadFile(file)) as {
+        path?: string;
+        url?: string;
+      };
+      const photoPath = uploaded.path || uploaded.url;
+
+      if (photoPath && !photoPaths.value.includes(photoPath)) {
+        photoPaths.value.push(photoPath);
+      }
+    }
+  } catch {
+    error.value = uploadError.value || 'Ошибка загрузки фото';
+  } finally {
+    input.value = '';
+  }
+};
+
+const removePhoto = (index: number) => {
+  photoPaths.value.splice(index, 1);
+};
+
+const handlePreviewError = (event: Event) => {
+  const image = event.target as HTMLImageElement;
+  image.style.display = 'none';
+};
+
 const handleSubmit = async () => {
   loading.value = true;
   error.value = '';
 
   const payload = {
     ...form.value,
-    photos: photosStr.value
-      ? photosStr.value
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : [],
+    photos: photoPaths.value,
   };
 
   try {
@@ -548,3 +611,30 @@ onMounted(() => {
   fetchRelations();
 });
 </script>
+
+<style scoped>
+.room-photo-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.room-photo-item {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.room-photo-item img {
+  aspect-ratio: 4 / 3;
+  background-color: #bfc9ed;
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.room-photo-item .btn {
+  border-radius: 0;
+  width: 100%;
+}
+</style>

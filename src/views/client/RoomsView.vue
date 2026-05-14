@@ -17,14 +17,36 @@
         >
           <!-- Фото -->
           <div
-            class="card-img-top d-flex align-items-center justify-content-center"
-            style="
-              height: 200px;
-              background-color: #bfc9ed;
-              color: #4c4993;
-              font-size: 3rem;
-            "
+            class="card-img-top room-photo-wrapper d-flex align-items-center justify-content-center"
           >
+            <img
+              v-if="getRoomPhoto(room)"
+              class="room-photo"
+              :src="getRoomPhoto(room)"
+              :alt="`${room.roomsType?.name || 'Номер'} №${room.roomNumber}`"
+              @error="handleImageError"
+            />
+            <template v-if="room.photos?.length > 1">
+              <button
+                type="button"
+                class="photo-nav photo-nav-prev"
+                aria-label="Previous photo"
+                @click.stop="showPreviousPhoto(room)"
+              >
+                &lsaquo;
+              </button>
+              <button
+                type="button"
+                class="photo-nav photo-nav-next"
+                aria-label="Next photo"
+                @click.stop="showNextPhoto(room)"
+              >
+                &rsaquo;
+              </button>
+              <div class="photo-counter">
+                {{ getRoomPhotoIndex(room) + 1 }} / {{ room.photos.length }}
+              </div>
+            </template>
             🏨
           </div>
 
@@ -85,6 +107,7 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
+import { useImageUrl } from '@/composables/useImageUrl';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -107,8 +130,41 @@ interface Room {
 }
 
 const router = useRouter();
+const { getImageUrl } = useImageUrl();
 const rooms = ref<Room[]>([]);
 const loading = ref(true);
+const roomPhotoIndexes = ref<Record<string, number>>({});
+
+const getRoomPhoto = (room: Room) =>
+  room.photos?.[getRoomPhotoIndex(room)]
+    ? getImageUrl(room.photos[getRoomPhotoIndex(room)])
+    : '';
+
+const getRoomPhotoIndex = (room: Room) => {
+  const currentIndex = roomPhotoIndexes.value[room.id] ?? 0;
+  const lastIndex = (room.photos?.length ?? 1) - 1;
+
+  return Math.min(currentIndex, Math.max(lastIndex, 0));
+};
+
+const showPreviousPhoto = (room: Room) => {
+  const total = room.photos?.length ?? 0;
+  if (total <= 1) return;
+
+  roomPhotoIndexes.value[room.id] = (getRoomPhotoIndex(room) - 1 + total) % total;
+};
+
+const showNextPhoto = (room: Room) => {
+  const total = room.photos?.length ?? 0;
+  if (total <= 1) return;
+
+  roomPhotoIndexes.value[room.id] = (getRoomPhotoIndex(room) + 1) % total;
+};
+
+const handleImageError = (event: Event) => {
+  const image = event.target as HTMLImageElement;
+  image.style.display = 'none';
+};
 
 const getStatusStyle = (id: number | undefined) => {
   if (id === 1) return { backgroundColor: '#a1cdc4', color: '#1a3c34' };
@@ -132,3 +188,61 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.room-photo-wrapper {
+  height: 200px;
+  background-color: #bfc9ed;
+  color: #4c4993;
+  font-size: 3rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.room-photo {
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  position: absolute;
+  width: 100%;
+}
+
+.photo-nav {
+  align-items: center;
+  background-color: rgba(45, 38, 64, 0.65);
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  font-size: 1.5rem;
+  height: 34px;
+  justify-content: center;
+  line-height: 1;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  z-index: 2;
+}
+
+.photo-nav-prev {
+  left: 10px;
+}
+
+.photo-nav-next {
+  right: 10px;
+}
+
+.photo-counter {
+  background-color: rgba(45, 38, 64, 0.75);
+  border-radius: 999px;
+  bottom: 10px;
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 6px 10px;
+  position: absolute;
+  right: 10px;
+  z-index: 2;
+}
+</style>
