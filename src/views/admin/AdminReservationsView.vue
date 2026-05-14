@@ -181,21 +181,58 @@
               />
             </div>
             <div class="mb-3">
-              <label class="form-label"
-                >Дополнительные гости (выберите из списка)</label
-              >
+              <label class="form-label">Дополнительные гости</label>
+              <input
+                v-model="guestSearchQuery"
+                class="form-control mb-2"
+                placeholder="Введите имя, фамилию или email"
+                @input="handleGuestSearchInput"
+              />
+              <div class="form-text mb-2">Начните вводить минимум 2 символа.</div>
+              <div v-if="selectedGuestUsers.length" class="selected-guests mb-3">
+                <div
+                  v-for="user in selectedGuestUsers"
+                  :key="user.id"
+                  class="selected-guest"
+                >
+                  <span>{{ user.surname }} {{ user.name }} ({{ user.email }})</span>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    @click="removeGuest(user.id)"
+                  >
+                    Убрать
+                  </button>
+                </div>
+              </div>
               <div
                 class="border rounded p-3"
                 style="max-height: 200px; overflow-y: auto"
               >
-                <div v-for="user in allUsers" :key="user.id" class="form-check">
+                <div v-if="userSearchLoading" class="text-muted">
+                  Поиск гостей...
+                </div>
+                <div
+                  v-else-if="guestSearchQuery.trim().length < 2"
+                  class="text-muted"
+                >
+                  Введите запрос для поиска.
+                </div>
+                <div
+                  v-else-if="searchedUsers.length === 0"
+                  class="text-muted"
+                >
+                  Гости не найдены.
+                </div>
+                <div v-for="user in searchedUsers" v-else :key="user.id" class="guest-search-item">
                   <input
                     class="form-check-input"
                     type="checkbox"
                     :value="user.id"
                     v-model="guestForm.guestIds"
                     :id="'guest-' + user.id"
-                    :disabled="user.id === editingReservation?.mainGuest?.id"
+                    :disabled="isMainGuest(user)"
+                    @change="toggleGuest(user, $event)"
                   />
                   <label :for="'guest-' + user.id" class="form-check-label">
                     {{ user.surname }} {{ user.name }} ({{ user.email }})
@@ -271,8 +308,12 @@ interface User {
 }
 
 const reservations = ref<Reservation[]>([]);
-const allUsers = ref<User[]>([]);
+const searchedUsers = ref<User[]>([]);
+const selectedGuestUsers = ref<User[]>([]);
+const guestSearchQuery = ref('');
+const userSearchLoading = ref(false);
 const loading = ref(false);
+let guestSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Модалка отмены
 const showCancelModal = ref(false);
@@ -297,13 +338,62 @@ const fetchReservations = async () => {
   }
 };
 
-const fetchUsers = async () => {
+const searchUsers = async () => {
+  const query = guestSearchQuery.value.trim();
+
+  if (query.length < 2) {
+    searchedUsers.value = [];
+    return;
+  }
+
+  userSearchLoading.value = true;
   try {
-    const res = await client.get('/auth/user-by-query/');
-    allUsers.value = res.data;
+    const res = await client.get('/auth/user-by-query/', {
+      params: { query },
+    });
+    searchedUsers.value = res.data;
   } catch (err) {
     console.error('Ошибка загрузки пользователей:', err);
+  } finally {
+    userSearchLoading.value = false;
   }
+};
+
+const handleGuestSearchInput = () => {
+  if (guestSearchTimer) {
+    clearTimeout(guestSearchTimer);
+  }
+
+  guestSearchTimer = setTimeout(() => {
+    searchUsers();
+  }, 350);
+};
+
+const isMainGuest = (user: User) =>
+  user.id === editingReservation.value?.mainGuest?.id;
+
+const removeGuest = (id: string) => {
+  guestForm.value.guestIds = guestForm.value.guestIds.filter(
+    (guestId) => guestId !== id,
+  );
+  selectedGuestUsers.value = selectedGuestUsers.value.filter(
+    (user) => user.id !== id,
+  );
+};
+
+const toggleGuest = (user: User, event: Event) => {
+  const checked = (event.target as HTMLInputElement).checked;
+
+  if (checked) {
+    if (!selectedGuestUsers.value.some((selected) => selected.id === user.id)) {
+      selectedGuestUsers.value.push(user);
+    }
+    return;
+  }
+
+  selectedGuestUsers.value = selectedGuestUsers.value.filter(
+    (selected) => selected.id !== user.id,
+  );
 };
 
 const formatDate = (d: string) => new Date(d).toLocaleDateString('ru-RU');
@@ -357,6 +447,9 @@ const handleCancel = async () => {
 
 const openGuestModal = (res: Reservation) => {
   editingReservation.value = res;
+  guestSearchQuery.value = '';
+  searchedUsers.value = [];
+  selectedGuestUsers.value = [...(res.guests ?? [])];
   guestForm.value = {
     numberOfGuests: res.numberOfGuests,
     guestIds: res.guests?.map((g) => g.id) ?? [],
@@ -384,6 +477,36 @@ const handleUpdateGuests = async () => {
 
 onMounted(() => {
   fetchReservations();
-  fetchUsers();
 });
 </script>
+
+<style scoped>
+.selected-guests {
+  display: grid;
+  gap: 8px;
+}
+
+.selected-guest {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.guest-search-item {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.selected-guest {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.guest-search-item + .guest-search-item {
+  margin-top: 10px;
+}
+</style>
