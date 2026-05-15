@@ -1,71 +1,96 @@
 <template>
-  <div class="row justify-content-center mt-5">
-    <div class="col-md-4">
-      <div class="card shadow">
-        <div class="card-body p-4">
-          <h2 class="text-center mb-4">Вход</h2>
-          <p v-if="error" class="alert alert-danger">{{ error }}</p>
+  <section class="auth-page">
+    <div class="auth-card">
+      <span class="eyebrow">Вход</span>
+      <h1>Вернуться к своей полке</h1>
+      <p>После входа доступны сделки, аренда, загрузка книг и профиль.</p>
 
-          <form @submit.prevent="handleSubmit">
-            <div class="mb-3">
-              <label class="form-label">Email</label>
-              <input
-                v-model="email"
-                type="email"
-                class="form-control"
-                required
-              />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Пароль</label>
-              <input
-                v-model="password"
-                type="password"
-                class="form-control"
-                required
-              />
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Войти</button>
-            <div class="text-center mt-3">
-              Нет аккаунта?
-              <router-link to="/register">Зарегистрироваться</router-link>
-            </div>
-          </form>
-        </div>
+      <div v-if="error" class="alert alert-danger">{{ error }}</div>
+      <div v-if="notice" class="alert alert-success">{{ notice }}</div>
+
+      <form @submit.prevent="submitLogin">
+        <label class="form-label">Email</label>
+        <input v-model.trim="form.email" class="form-control" type="email" required />
+
+        <label class="form-label">Пароль</label>
+        <input
+          v-model="form.password"
+          class="form-control"
+          type="password"
+          required
+        />
+
+        <button class="btn btn-primary-soft w-100" type="submit" :disabled="loading">
+          {{ loading ? 'Входим...' : 'Войти' }}
+        </button>
+      </form>
+
+      <div class="auth-links">
+        <router-link to="/register">Создать аккаунт</router-link>
+        <button class="link-button" type="button" @click="showReset = !showReset">
+          Сбросить пароль
+        </button>
       </div>
+
+      <form v-if="showReset" class="reset-panel" @submit.prevent="resetPassword">
+        <label class="form-label">Email для сброса</label>
+        <input v-model.trim="resetEmail" class="form-control" type="email" required />
+        <button class="btn btn-ghost w-100" type="submit" :disabled="loading">
+          Отправить запрос
+        </button>
+      </form>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import client from '@/api/client';
+import { authApi } from '@/api/library';
 import { useUserStore } from '@/stores/userStore';
+import { getApiErrorMessage, showSuccessMessage } from '@/utils/errors';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const userStore = useUserStore();
-const email = ref('');
-const password = ref('');
+const form = ref({
+  email: '',
+  password: '',
+});
+const resetEmail = ref('');
+const showReset = ref(false);
+const loading = ref(false);
 const error = ref('');
+const notice = ref('');
 
-const handleSubmit = async () => {
+const submitLogin = async () => {
+  loading.value = true;
+  error.value = '';
+  notice.value = '';
+
   try {
-    const res = await client.post('/auth/login', {
-      email: email.value,
-      password: password.value,
-    });
-    localStorage.setItem('token', res.data.access_token);
+    await userStore.login(form.value);
+    await router.push(userStore.isAdmin ? '/admin' : '/catalog');
+  } catch (loginError) {
+    error.value = getApiErrorMessage(loginError, 'Неверная почта или пароль');
+  } finally {
+    loading.value = false;
+  }
+};
 
-    const userRes = await client.get('/auth/me');
-    console.log('User data:', userRes.data); // Посмотри в консоли что приходит
+const resetPassword = async () => {
+  loading.value = true;
+  error.value = '';
+  notice.value = '';
 
-    userStore.setUser(userRes.data);
-    console.log('User role:', userRes.data.roleType?.name);
-    console.log('Store role:', userStore.role);
-    router.push('/');
-  } catch (err) {
-    error.value = 'Неверная почта или пароль';
+  try {
+    await authApi.resetPassword(resetEmail.value);
+    showSuccessMessage('Запрос обработан. Бэк сбрасывает пароль и возвращает статус ok.');
+    notice.value = '';
+    showReset.value = false;
+  } catch (resetError) {
+    error.value = getApiErrorMessage(resetError, 'Не удалось сбросить пароль');
+  } finally {
+    loading.value = false;
   }
 };
 </script>

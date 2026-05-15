@@ -1,83 +1,61 @@
 <template>
-  <div class="row justify-content-center mt-5">
-    <div class="col-md-5">
-      <div class="card shadow">
-        <div class="card-body p-4">
-          <h2 class="text-center mb-4">Регистрация</h2>
-          <p v-if="error" class="alert alert-danger">{{ error }}</p>
-          <p v-if="success" class="alert alert-success">
-            Регистрация успешна! <router-link to="/login">Войти</router-link>
-          </p>
+  <section class="auth-page">
+    <div class="auth-card wide">
+      <span class="eyebrow">Регистрация</span>
+      <h1>Новая читательская полка</h1>
+      <p>Обычный пользователь может покупать, арендовать и выставлять книги.</p>
 
-          <form @submit.prevent="handleSubmit">
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Имя *</label>
-                <input
-                  v-model="form.name"
-                  type="text"
-                  class="form-control"
-                  required
-                />
-              </div>
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Фамилия</label>
-                <input
-                  v-model="form.surname"
-                  type="text"
-                  class="form-control"
-                />
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Телефон *</label>
-              <input
-                v-model="form.phone"
-                type="tel"
-                class="form-control"
-                required
-              />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Email *</label>
-              <input
-                v-model="form.email"
-                type="email"
-                class="form-control"
-                required
-              />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Пароль *</label>
-              <input
-                v-model="form.password"
-                type="password"
-                class="form-control"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              class="btn btn-primary w-100"
-              :disabled="loading"
-            >
-              {{ loading ? 'Регистрация...' : 'Зарегистрироваться' }}
-            </button>
-          </form>
+      <div v-if="error" class="alert alert-danger">{{ error }}</div>
 
-          <div class="text-center mt-3">
-            <router-link to="/login">Уже есть аккаунт? Войти</router-link>
+      <form @submit.prevent="submitRegister">
+        <div class="split-fields">
+          <div>
+            <label class="form-label">Имя</label>
+            <input v-model.trim="form.name" class="form-control" required />
+          </div>
+          <div>
+            <label class="form-label">Фамилия</label>
+            <input v-model.trim="form.surname" class="form-control" required />
           </div>
         </div>
+
+        <label class="form-label">Телефон</label>
+        <input v-model.trim="form.phone" class="form-control" type="tel" required />
+
+        <label class="form-label">Email</label>
+        <input v-model.trim="form.email" class="form-control" type="email" required />
+
+        <label class="form-label">Пароль</label>
+        <input
+          v-model="form.password"
+          class="form-control"
+          minlength="6"
+          type="password"
+          required
+        />
+
+        <button class="btn btn-primary-soft w-100" type="submit" :disabled="loading">
+          {{ loading ? 'Создаем...' : 'Зарегистрироваться' }}
+        </button>
+      </form>
+
+      <div class="auth-links">
+        <router-link to="/login">Уже есть аккаунт</router-link>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import client from '@/api/client';
+import { useUserStore } from '@/stores/userStore';
+import { getApiErrorMessage } from '@/utils/errors';
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
+const userStore = useUserStore();
+const loading = ref(false);
+const error = ref('');
 const form = ref({
   name: '',
   surname: '',
@@ -85,20 +63,16 @@ const form = ref({
   email: '',
   password: '',
 });
-const loading = ref(false);
-const error = ref('');
-const success = ref(false);
 
-const handleSubmit = async () => {
+const submitRegister = async () => {
   loading.value = true;
   error.value = '';
 
   try {
-    await client.post('/auth/register', form.value);
-    success.value = true;
-    form.value = { name: '', surname: '', phone: '', email: '', password: '' };
-  } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка регистрации';
+    await userStore.register(form.value);
+    await router.push(userStore.isAdmin ? '/admin' : '/catalog');
+  } catch (registerError) {
+    error.value = getApiErrorMessage(registerError, 'Не удалось зарегистрироваться');
   } finally {
     loading.value = false;
   }

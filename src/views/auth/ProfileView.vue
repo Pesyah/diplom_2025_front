@@ -1,126 +1,144 @@
 <template>
-  <div class="row justify-content-center mt-4">
-    <div class="col-md-6">
-      <div class="card shadow">
-        <div class="card-body p-4">
-          <h2 class="mb-4">Мой профиль</h2>
-
-          <div v-if="loading" class="text-center py-4">
-            <div class="spinner-border text-primary"></div>
-          </div>
-
-          <div v-else>
-            <div class="alert alert-success" v-if="updateSuccess">
-              Данные обновлены
-            </div>
-            <div class="alert alert-danger" v-if="updateError">
-              {{ updateError }}
-            </div>
-
-            <form @submit.prevent="updateProfile">
-              <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label class="form-label">Имя</label>
-                  <input
-                    v-model="profile.name"
-                    type="text"
-                    class="form-control"
-                  />
-                </div>
-                <div class="col-md-6 mb-3">
-                  <label class="form-label">Фамилия</label>
-                  <input
-                    v-model="profile.surname"
-                    type="text"
-                    class="form-control"
-                  />
-                </div>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Телефон</label>
-                <input
-                  v-model="profile.phone"
-                  type="tel"
-                  class="form-control"
-                />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input
-                  :value="user?.email"
-                  type="email"
-                  class="form-control"
-                  disabled
-                />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Роль</label>
-                <input
-                  :value="user?.roleType?.name || user?.role"
-                  type="text"
-                  class="form-control"
-                  disabled
-                />
-              </div>
-              <button
-                type="submit"
-                class="btn btn-primary"
-                :disabled="updating"
-              >
-                {{ updating ? 'Сохранение...' : 'Сохранить изменения' }}
-              </button>
-            </form>
-          </div>
+  <section class="page-band">
+    <div class="container-xxl">
+      <div class="toolbar-panel">
+        <div>
+          <span class="eyebrow">Аккаунт</span>
+          <h1>Профиль</h1>
         </div>
+        <span class="pill">{{ user?.roleType?.name || 'user' }}</span>
+      </div>
+
+      <div v-if="notice" class="alert alert-success">{{ notice }}</div>
+      <div v-if="error" class="alert alert-danger">{{ error }}</div>
+
+      <div class="profile-grid">
+        <form class="form-panel" @submit.prevent="updateProfile">
+          <span class="eyebrow">Данные</span>
+          <h2>Контакты</h2>
+
+          <div class="split-fields">
+            <div>
+              <label class="form-label">Имя</label>
+              <input v-model.trim="profile.name" class="form-control" required />
+            </div>
+            <div>
+              <label class="form-label">Фамилия</label>
+              <input v-model.trim="profile.surname" class="form-control" required />
+            </div>
+          </div>
+
+          <label class="form-label">Телефон</label>
+          <input v-model.trim="profile.phone" class="form-control" required />
+
+          <label class="form-label">Email</label>
+          <input :value="user?.email" class="form-control" disabled />
+
+          <button class="btn btn-primary-soft w-100" type="submit" :disabled="saving">
+            {{ saving ? 'Сохраняем...' : 'Сохранить профиль' }}
+          </button>
+        </form>
+
+        <form class="form-panel" @submit.prevent="changePassword">
+          <span class="eyebrow">Безопасность</span>
+          <h2>Смена пароля</h2>
+
+          <label class="form-label">Старый пароль</label>
+          <input
+            v-model="passwords.oldPassword"
+            class="form-control"
+            type="password"
+            required
+          />
+
+          <label class="form-label">Новый пароль</label>
+          <input
+            v-model="passwords.newPassword"
+            class="form-control"
+            minlength="6"
+            type="password"
+            required
+          />
+
+          <button class="btn btn-secondary-soft w-100" type="submit" :disabled="saving">
+            Обновить пароль
+          </button>
+        </form>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import client from '@/api/client';
+import { authApi } from '@/api/library';
 import { useUserStore } from '@/stores/userStore';
-import { onMounted, ref } from 'vue';
+import { getApiErrorMessage, showSuccessMessage } from '@/utils/errors';
+import { computed, onMounted, ref } from 'vue';
 
 const userStore = useUserStore();
-const user = ref<any>(null);
-const profile = ref({ name: '', surname: '', phone: '' });
-const loading = ref(true);
-const updating = ref(false);
-const updateSuccess = ref(false);
-const updateError = ref('');
-
-onMounted(async () => {
-  try {
-    const res = await client.get('/auth/me');
-    user.value = res.data;
-    profile.value = {
-      name: res.data.name || '',
-      surname: res.data.surname || '',
-      phone: res.data.phone || '',
-    };
-  } catch (err) {
-    console.error(err);
-  } finally {
-    loading.value = false;
-  }
+const user = computed(() => userStore.user);
+const saving = ref(false);
+const error = ref('');
+const notice = ref('');
+const profile = ref({
+  name: '',
+  surname: '',
+  phone: '',
+});
+const passwords = ref({
+  oldPassword: '',
+  newPassword: '',
 });
 
+const fillProfile = () => {
+  profile.value = {
+    name: user.value?.name ?? '',
+    surname: user.value?.surname ?? '',
+    phone: user.value?.phone ?? '',
+  };
+};
+
 const updateProfile = async () => {
-  updating.value = true;
-  updateSuccess.value = false;
-  updateError.value = '';
+  saving.value = true;
+  error.value = '';
+  notice.value = '';
 
   try {
-    const res = await client.patch('/auth/update-user', profile.value);
-    user.value = res.data;
-    userStore.setUser(res.data);
-    updateSuccess.value = true;
-    setTimeout(() => (updateSuccess.value = false), 3000);
-  } catch (err: any) {
-    updateError.value = err.response?.data?.message || 'Ошибка обновления';
+    const updated = await authApi.updateUser(profile.value);
+    userStore.setUser(updated);
+    showSuccessMessage('Профиль обновлен.');
+    notice.value = '';
+  } catch (updateError) {
+    error.value = getApiErrorMessage(updateError, 'Не удалось обновить профиль');
   } finally {
-    updating.value = false;
+    saving.value = false;
   }
 };
+
+const changePassword = async () => {
+  saving.value = true;
+  error.value = '';
+  notice.value = '';
+
+  try {
+    await authApi.changePassword(
+      passwords.value.oldPassword,
+      passwords.value.newPassword,
+    );
+    passwords.value = { oldPassword: '', newPassword: '' };
+    showSuccessMessage('Пароль обновлен.');
+    notice.value = '';
+  } catch (passwordError) {
+    error.value = getApiErrorMessage(passwordError, 'Не удалось изменить пароль');
+  } finally {
+    saving.value = false;
+  }
+};
+
+onMounted(async () => {
+  if (!userStore.user) {
+    await userStore.loadMe();
+  }
+  fillProfile();
+});
 </script>

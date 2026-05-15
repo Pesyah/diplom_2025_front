@@ -1,155 +1,122 @@
 import { useUserStore } from '@/stores/userStore';
 import { createRouter, createWebHistory } from 'vue-router';
 
-// Auth views
+const CatalogView = () => import('@/views/library/CatalogView.vue');
+const BookDetailView = () => import('@/views/library/BookDetailView.vue');
+const AuthorsView = () => import('@/views/library/AuthorsView.vue');
+const AuthorDetailView = () => import('@/views/library/AuthorDetailView.vue');
+const MyBooksView = () => import('@/views/library/MyBooksView.vue');
+const TransactionsView = () => import('@/views/library/TransactionsView.vue');
+const AdminDashboardView = () => import('@/views/admin/AdminDashboardView.vue');
+const AdminUsersView = () => import('@/views/admin/AdminUsersView.vue');
+const AdminAuthorsView = () => import('@/views/admin/AdminAuthorsView.vue');
+const AdminDealsView = () => import('@/views/admin/AdminDealsView.vue');
 const LoginView = () => import('@/views/auth/LoginView.vue');
 const RegisterView = () => import('@/views/auth/RegisterView.vue');
 const ProfileView = () => import('@/views/auth/ProfileView.vue');
-const CreateManagerView = () => import('@/views/auth/CreateManagerView.vue');
-
-// Client views (доступны без авторизации)
-const RoomsView = () => import('@/views/client/RoomsView.vue');
-const RoomDetailView = () => import('@/views/client/RoomDetailView.vue');
-const BookingView = () => import('@/views/client/BookingView.vue');
-const MyReservationsView = () =>
-  import('@/views/client/MyReservationsView.vue');
-
-// Admin views
-const AdminDashboardView = () => import('@/views/admin/AdminDashboardView.vue');
-const AdminRoomsView = () => import('@/views/admin/AdminRoomsView.vue');
-const AdminReservationsView = () =>
-  import('@/views/admin/AdminReservationsView.vue');
-const AdminUsersView = () => import('@/views/admin/AdminUsersView.vue');
-const AdminAmenitiesView = () => import('@/views/admin/AdminAmenitiesView.vue');
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    // ======================== PUBLIC ========================
-    { path: '/', redirect: '/rooms' },
+    { path: '/', redirect: '/catalog' },
+    { path: '/catalog', name: 'catalog', component: CatalogView },
+    { path: '/books/:id', name: 'book-detail', component: BookDetailView },
+    { path: '/authors', name: 'authors', component: AuthorsView },
     {
-      path: '/rooms',
-      name: 'rooms',
-      component: RoomsView,
+      path: '/authors/:id',
+      name: 'author-detail',
+      component: AuthorDetailView,
     },
-    {
-      path: '/rooms/:id',
-      name: 'room-detail',
-      component: RoomDetailView,
-    },
-
-    // ======================== AUTH ========================
-    { path: '/login', component: LoginView },
-    { path: '/register', component: RegisterView },
+    { path: '/login', name: 'login', component: LoginView },
+    { path: '/register', name: 'register', component: RegisterView },
     {
       path: '/profile',
+      name: 'profile',
       component: ProfileView,
       meta: { requiresAuth: true },
     },
-
-    // ======================== CLIENT (требуют авторизации) ========================
     {
-      path: '/booking/:roomId',
-      name: 'booking',
-      component: BookingView,
-      meta: { requiresAuth: true, guestOnly: true },
+      path: '/my-books',
+      name: 'my-books',
+      component: MyBooksView,
+      meta: { requiresAuth: true },
     },
     {
-      path: '/my-reservations',
-      name: 'my-reservations',
-      component: MyReservationsView,
-      meta: { requiresAuth: true, guestOnly: true },
+      path: '/transactions',
+      name: 'transactions',
+      component: TransactionsView,
+      meta: { requiresAuth: true },
     },
-
-    // ======================== ADMIN (staff) ========================
     {
       path: '/admin',
-      redirect: '/admin/dashboard',
-    },
-    {
-      path: '/admin/dashboard',
+      name: 'admin',
       component: AdminDashboardView,
-      meta: { requiresAuth: true, staffOnly: true },
-    },
-    {
-      path: '/admin/rooms',
-      component: AdminRoomsView,
-      meta: { requiresAuth: true, staffOnly: true },
-    },
-    {
-      path: '/admin/reservations',
-      component: AdminReservationsView,
-      meta: { requiresAuth: true, staffOnly: true },
+      meta: { requiresAuth: true, adminOnly: true },
     },
     {
       path: '/admin/users',
+      name: 'admin-users',
       component: AdminUsersView,
-      meta: { requiresAuth: true, staffOnly: true },
-    },
-    {
-      path: '/admin/amenities',
-      component: AdminAmenitiesView,
       meta: { requiresAuth: true, adminOnly: true },
     },
     {
-      path: '/admin/create-manager',
-      component: CreateManagerView,
+      path: '/admin/authors',
+      name: 'admin-authors',
+      component: AdminAuthorsView,
       meta: { requiresAuth: true, adminOnly: true },
     },
-
-    // ======================== 404 ========================
     {
-      path: '/:pathMatch(.*)*',
-      redirect: '/rooms',
+      path: '/admin/deals',
+      name: 'admin-deals',
+      component: AdminDealsView,
+      meta: { requiresAuth: true, adminOnly: true },
     },
+    { path: '/rooms', redirect: '/catalog' },
+    { path: '/rooms/:id', redirect: (to) => `/books/${to.params.id}` },
+    { path: '/my-reservations', redirect: '/transactions' },
+    { path: '/admin/:pathMatch(.*)*', redirect: '/admin' },
+    { path: '/:pathMatch(.*)*', redirect: '/catalog' },
   ],
 });
 
-// ======================== GUARDS ========================
-router.beforeEach(async (to, from, next) => {
-  const token = localStorage.getItem('token');
+router.beforeEach(async (to) => {
   const userStore = useUserStore();
+  const token = localStorage.getItem('token');
 
-  // Загрузка пользователя если есть токен но нет данных
-  if (token && !userStore.user) {
+  if (token && !userStore.user && !userStore.isBootstrapped) {
     try {
-      const client = (await import('@/api/client')).default;
-      const res = await client.get('/auth/me');
-      userStore.setUser(res.data);
+      await userStore.loadMe();
     } catch {
       userStore.clear();
-      if (to.meta.requiresAuth) {
-        return next('/login');
-      }
     }
   }
 
-  const role = userStore.user?.roleType?.name;
-  const isAdmin = role === 'admin';
-  const isManager = role === 'manager';
-  const isStaff = isAdmin || isManager;
-
-  // Требуется авторизация
-  if (to.meta.requiresAuth && !token) {
-    return next('/login');
+  if (to.meta.requiresAuth && !userStore.isAuthenticated) {
+    return '/login';
   }
 
-  // Staff-only маршруты — только админ и менеджер
-  if (to.meta.staffOnly && !isStaff) {
-    return next('/rooms');
+  if (to.meta.adminOnly && !userStore.isAdmin) {
+    return '/catalog';
   }
 
-  // Admin-only маршруты
-  if (to.meta.adminOnly && !isAdmin) {
-    return next('/admin/dashboard');
+  const userWorkspaceRoutes = [
+    'catalog',
+    'book-detail',
+    'authors',
+    'author-detail',
+    'my-books',
+    'transactions',
+  ];
+
+  if (userStore.isAdmin && userWorkspaceRoutes.includes(String(to.name))) {
+    return '/admin';
   }
 
-  // Guest-only маршруты — админ и менеджер не могут бронировать как гость
-  if (to.meta.guestOnly && isStaff) {
-    return next('/admin/dashboard');
+  if ((to.name === 'login' || to.name === 'register') && userStore.isAuthenticated) {
+    return userStore.isAdmin ? '/admin' : '/catalog';
   }
 
-  next();
+  return true;
 });
 
 export default router;
