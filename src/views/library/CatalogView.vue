@@ -4,10 +4,6 @@
       <div class="hero-copy">
         <span class="eyebrow">Библиотечный маркетплейс</span>
         <h1>Книги, которые можно купить, арендовать или выставить самому</h1>
-        <p>
-          Теплый каталог с личными полками, заявками на аренду и историей
-          покупок. База приходит из NestJS API проекта.
-        </p>
         <div class="hero-actions">
           <router-link v-if="isReader" class="btn btn-primary-soft" to="/my-books">
             Выставить книгу

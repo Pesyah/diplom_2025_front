@@ -66,10 +66,6 @@
                     <span>{{ formatAuthorName(author) }}</span>
                   </label>
                 </div>
-                <small>
-                  Показано {{ visibleAuthors.length }} из {{ filteredAuthors.length }}.
-                  Используйте поиск, если автора нет в первой десятке.
-                </small>
               </div>
 
               <div class="selection-panel">
@@ -105,10 +101,6 @@
                     <span>{{ genre.name }}</span>
                   </label>
                 </div>
-                <small>
-                  Показано {{ visibleGenres.length }} из {{ filteredGenres.length }}.
-                  Все жанры остаются на фронте, фильтруем локально.
-                </small>
               </div>
             </div>
 
