@@ -94,10 +94,7 @@
                   >
                     <span class="text-muted small">
                       Добавка:
-                      {{ item.coffeeAdditiveRelation.coffeeAdditive.name }} (+{{
-                        Number(item.coffeeAdditiveRelation.price).toFixed(2)
-                      }}
-                      ₽)
+                      {{ item.coffeeAdditiveRelation.coffeeAdditive.name }}
                     </span>
                   </div>
                   <p class="small text-muted mb-0 mt-1">
@@ -203,6 +200,12 @@ const getItemName = (item: any) => {
 };
 
 const getItemPrice = (item: any) => {
+  const quantity = Number(item.quantity);
+  const totalValue = Number(item.totalValue);
+  if (quantity > 0 && Number.isFinite(totalValue)) {
+    return totalValue / quantity;
+  }
+
   if (item.products) return Number(item.products.price) || 0;
   let price = 0;
   if (item.coffeeVolumeRelation) {
