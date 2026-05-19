@@ -151,13 +151,19 @@
                 font-weight: 600;
               "
               @click="createOrder"
-              :disabled="creating"
+              :disabled="creating || refreshingPrices"
             >
               <span
-                v-if="creating"
+                v-if="creating || refreshingPrices"
                 class="spinner-border spinner-border-sm me-2"
               ></span>
-              {{ isAuthenticated ? 'Оформить заказ' : 'Войти и заказать' }}
+              {{
+                refreshingPrices
+                  ? 'Обновляем цены...'
+                  : isAuthenticated
+                    ? 'Оформить заказ'
+                    : 'Войти и заказать'
+              }}
             </button>
 
             <div v-if="orderError" class="alert alert-danger mt-3 py-2 small">
@@ -172,9 +178,14 @@
 
 <script setup lang="ts">
 import client from '@/api/client';
-import { useCartStore } from '@/stores/cartStore';
+import type { AxiosError } from 'axios';
+import {
+  useCartStore,
+  type CartCoffeePriceSource,
+  type CartProductPriceSource,
+} from '@/stores/cartStore';
 import { useUserStore } from '@/stores/userStore';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -184,7 +195,51 @@ const cartStore = useCartStore();
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const comment = ref('');
 const creating = ref(false);
+const refreshingPrices = ref(false);
 const orderError = ref('');
+
+interface ApiErrorData {
+  message?: string;
+}
+
+interface OrderProductItemPayload {
+  productsId: string;
+  quantity: number;
+}
+
+interface OrderCoffeeItemPayload {
+  coffeeVolumeRelationId: number;
+  quantity: number;
+  coffeeAdditiveRelationId?: number;
+}
+
+type OrderItemPayload = OrderProductItemPayload | OrderCoffeeItemPayload;
+
+const getApiErrorMessage = (err: unknown, fallback: string) => {
+  const apiError = err as AxiosError<ApiErrorData>;
+  return apiError.response?.data?.message || fallback;
+};
+
+const refreshCartPrices = async () => {
+  if (cartStore.items.length === 0) return;
+
+  refreshingPrices.value = true;
+  try {
+    const [coffeeRes, productsRes] = await Promise.all([
+      client.get<CartCoffeePriceSource[]>('/coffee/all'),
+      client.get<CartProductPriceSource[]>('/products/all'),
+    ]);
+
+    cartStore.refreshPrices(coffeeRes.data, productsRes.data);
+  } catch (err: unknown) {
+    orderError.value = getApiErrorMessage(
+      err,
+      'Не удалось обновить цены корзины',
+    );
+  } finally {
+    refreshingPrices.value = false;
+  }
+};
 
 const createOrder = async () => {
   if (!isAuthenticated.value) {
@@ -201,19 +256,21 @@ const createOrder = async () => {
   orderError.value = '';
 
   try {
-    const items = cartStore.items.map((item) => {
+    const items: OrderItemPayload[] = cartStore.items.map((item) => {
       if (item.type === 'product') {
         return {
           productsId: item.productId,
           quantity: item.quantity,
         };
       } else {
-        const coffeeItem: any = {
+        const coffeeItem: OrderCoffeeItemPayload = {
           coffeeVolumeRelationId: item.coffeeVolumeRelationId,
           quantity: item.quantity,
         };
-        if (item.coffeeAdditiveRelationId) {
-          coffeeItem.coffeeAdditiveRelationId = item.coffeeAdditiveRelationId;
+        const firstAdditive = item.additives[0];
+        if (firstAdditive) {
+          coffeeItem.coffeeAdditiveRelationId =
+            firstAdditive.coffeeAdditiveRelationId;
         }
         return coffeeItem;
       }
@@ -227,10 +284,12 @@ const createOrder = async () => {
     cartStore.clearCart();
     comment.value = '';
     router.push('/orders');
-  } catch (err: any) {
-    orderError.value = err.response?.data?.message || 'Ошибка создания заказа';
+  } catch (err: unknown) {
+    orderError.value = getApiErrorMessage(err, 'Ошибка создания заказа');
   } finally {
     creating.value = false;
   }
 };
+
+onMounted(refreshCartPrices);
 </script>

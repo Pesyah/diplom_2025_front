@@ -29,8 +29,38 @@ export interface CartProductItem {
 
 export type CartItem = CartCoffeeItem | CartProductItem;
 
+export interface CartCoffeePriceSource {
+  id: string;
+  name: string;
+  coffeeVolumeRelation?: {
+    id: number;
+    price: string | number;
+    coffeeVolume?: {
+      name?: string;
+    };
+    coffeeAdditiveRelation?: {
+      id: number;
+      price: string | number;
+      coffeeAdditive?: {
+        name?: string;
+      };
+    }[];
+  }[];
+}
+
+export interface CartProductPriceSource {
+  id: string;
+  name: string;
+  price: string | number;
+}
+
 export const useCartStore = defineStore('cart', () => {
   const items = ref<CartItem[]>([]);
+
+  const parsePrice = (price: string | number) => {
+    const value = Number(price);
+    return Number.isFinite(value) ? value : null;
+  };
 
   const loadFromStorage = () => {
     const saved = localStorage.getItem('coffeeCart');
@@ -96,6 +126,82 @@ export const useCartStore = defineStore('cart', () => {
     saveToStorage();
   };
 
+  const refreshPrices = (
+    coffeeList: CartCoffeePriceSource[],
+    productList: CartProductPriceSource[],
+  ) => {
+    let hasChanges = false;
+
+    items.value.forEach((item) => {
+      if (item.type === 'product') {
+        const product = productList.find((p) => p.id === item.productId);
+        if (!product) return;
+
+        const nextPrice = parsePrice(product.price);
+        if (nextPrice === null) return;
+
+        if (item.productName !== product.name || item.price !== nextPrice) {
+          item.productName = product.name;
+          item.price = nextPrice;
+          hasChanges = true;
+        }
+
+        return;
+      }
+
+      const coffee = coffeeList.find((c) => c.id === item.coffeeId);
+      const volumeRelation = coffee?.coffeeVolumeRelation?.find(
+        (vr) => vr.id === item.coffeeVolumeRelationId,
+      );
+
+      if (!coffee || !volumeRelation) return;
+
+      const nextVolumePrice = parsePrice(volumeRelation.price);
+      if (nextVolumePrice === null) return;
+
+      const nextVolumeName =
+        volumeRelation.coffeeVolume?.name || item.volumeName;
+
+      if (
+        item.coffeeName !== coffee.name ||
+        item.volumeName !== nextVolumeName ||
+        item.coffeeVolumeRelationPrice !== nextVolumePrice
+      ) {
+        item.coffeeName = coffee.name;
+        item.volumeName = nextVolumeName;
+        item.coffeeVolumeRelationPrice = nextVolumePrice;
+        hasChanges = true;
+      }
+
+      item.additives.forEach((additive) => {
+        const additiveRelation =
+          volumeRelation.coffeeAdditiveRelation?.find(
+            (ar) => ar.id === additive.coffeeAdditiveRelationId,
+          );
+        if (!additiveRelation) return;
+
+        const nextAdditivePrice = parsePrice(additiveRelation.price);
+        if (nextAdditivePrice === null) return;
+
+        const nextAdditiveName =
+          additiveRelation.coffeeAdditive?.name || additive.additiveName;
+
+        if (
+          additive.additiveName !== nextAdditiveName ||
+          additive.coffeeAdditiveRelationPrice !== nextAdditivePrice
+        ) {
+          additive.additiveName = nextAdditiveName;
+          additive.coffeeAdditiveRelationPrice = nextAdditivePrice;
+          hasChanges = true;
+        }
+      });
+    });
+
+    if (hasChanges) {
+      saveToStorage();
+    }
+  };
+
   const totalPrice = () => {
     return items.value.reduce((sum, item) => {
       if (item.type === 'product') {
@@ -148,6 +254,7 @@ export const useCartStore = defineStore('cart', () => {
     removeItem,
     updateQuantity,
     clearCart,
+    refreshPrices,
     totalPrice,
     itemsCount,
     getFormattedItemName,
