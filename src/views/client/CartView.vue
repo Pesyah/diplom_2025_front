@@ -210,7 +210,7 @@ interface OrderProductItemPayload {
 interface OrderCoffeeItemPayload {
   coffeeVolumeRelationId: number;
   quantity: number;
-  coffeeAdditiveRelationId?: number;
+  coffeeAdditiveRelationIds?: number[];
 }
 
 type OrderItemPayload = OrderProductItemPayload | OrderCoffeeItemPayload;
@@ -267,10 +267,12 @@ const createOrder = async () => {
           coffeeVolumeRelationId: item.coffeeVolumeRelationId,
           quantity: item.quantity,
         };
-        const firstAdditive = item.additives[0];
-        if (firstAdditive) {
-          coffeeItem.coffeeAdditiveRelationId =
-            firstAdditive.coffeeAdditiveRelationId;
+
+        const additiveRelationIds = item.additives.map(
+          (additive) => additive.coffeeAdditiveRelationId,
+        );
+        if (additiveRelationIds.length > 0) {
+          coffeeItem.coffeeAdditiveRelationIds = additiveRelationIds;
         }
         return coffeeItem;
       }

@@ -88,13 +88,13 @@
                   <div
                     v-if="
                       !item.products &&
-                      item.coffeeAdditiveRelation?.coffeeAdditive?.name
+                      getItemAdditiveNames(item).length > 0
                     "
                     class="mt-1"
                   >
                     <span class="text-muted small">
                       Добавка:
-                      {{ item.coffeeAdditiveRelation.coffeeAdditive.name }}
+                      {{ getItemAdditiveNames(item).join(', ') }}
                     </span>
                   </div>
                   <p class="small text-muted mb-0 mt-1">
@@ -153,6 +153,20 @@ const error = ref('');
 const order = ref<any>(null);
 const cancelling = ref(false);
 
+interface OrderCoffeeAdditiveRelation {
+  price?: string | number;
+  coffeeAdditive?: {
+    name?: string;
+  };
+}
+
+interface OrderItemWithAdditives {
+  coffeeAdditiveRelations?: OrderCoffeeAdditiveRelation[];
+  coffeeAdditiveRelation?:
+    | OrderCoffeeAdditiveRelation
+    | OrderCoffeeAdditiveRelation[];
+}
+
 const getItemAvatar = (item: any) => {
   if (item.products) return item.products.avatar || '';
   if (item.coffeeVolumeRelation?.coffee)
@@ -191,12 +205,40 @@ const getItemName = (item: any) => {
     let name = `${item.coffeeVolumeRelation.coffee?.name || 'Кофе'} (${
       item.coffeeVolumeRelation.coffeeVolume?.name || ''
     })`;
-    if (item.coffeeAdditiveRelation?.coffeeAdditive?.name) {
-      name += ` + ${item.coffeeAdditiveRelation.coffeeAdditive.name}`;
+    const additiveNames = getItemAdditiveNames(item);
+    if (additiveNames.length > 0) {
+      name += ` + ${additiveNames.join(', ')}`;
     }
     return name;
   }
   return 'Неизвестно';
+};
+
+const getItemAdditiveRelations = (
+  item: OrderItemWithAdditives,
+): OrderCoffeeAdditiveRelation[] => {
+  if (Array.isArray(item.coffeeAdditiveRelations)) {
+    return item.coffeeAdditiveRelations;
+  }
+
+  if (Array.isArray(item.coffeeAdditiveRelation)) {
+    return item.coffeeAdditiveRelation;
+  }
+
+  if (item.coffeeAdditiveRelation) {
+    return [item.coffeeAdditiveRelation];
+  }
+
+  return [];
+};
+
+const getItemAdditiveNames = (item: OrderItemWithAdditives) => {
+  return getItemAdditiveRelations(item)
+    .map((relation) => relation.coffeeAdditive?.name)
+    .filter(
+      (name: string | undefined): name is string =>
+        typeof name === 'string' && name.length > 0,
+    );
 };
 
 const getItemPrice = (item: any) => {
@@ -211,9 +253,10 @@ const getItemPrice = (item: any) => {
   if (item.coffeeVolumeRelation) {
     price = Number(item.coffeeVolumeRelation.price) || 0;
   }
-  if (item.coffeeAdditiveRelation) {
-    price += Number(item.coffeeAdditiveRelation.price) || 0;
-  }
+  price += getItemAdditiveRelations(item).reduce(
+    (sum, relation) => sum + (Number(relation.price) || 0),
+    0,
+  );
   return price;
 };
 
