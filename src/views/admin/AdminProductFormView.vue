@@ -243,7 +243,22 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Аватар *</label>
-            <input v-model.trim="brandForm.avatar" class="form-control" required />
+            <div class="input-group">
+              <input v-model.trim="brandForm.avatar" class="form-control" required />
+              <label class="btn btn-outline-secondary mb-0">
+                Загрузить файл
+                <input
+                  type="file"
+                  class="d-none"
+                  accept="image/*"
+                  :disabled="uploadingBrandAvatar"
+                  @change="handleRelationAvatarUpload($event, 'brand')"
+                />
+              </label>
+            </div>
+            <small v-if="uploadingBrandAvatar" class="text-muted">
+              Загрузка...
+            </small>
           </div>
           <div v-if="brandError" class="alert alert-danger mb-0">
             {{ brandError }}
@@ -298,11 +313,26 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Аватар *</label>
-            <input
-              v-model.trim="categoryForm.avatar"
-              class="form-control"
-              required
-            />
+            <div class="input-group">
+              <input
+                v-model.trim="categoryForm.avatar"
+                class="form-control"
+                required
+              />
+              <label class="btn btn-outline-secondary mb-0">
+                Загрузить файл
+                <input
+                  type="file"
+                  class="d-none"
+                  accept="image/*"
+                  :disabled="uploadingCategoryAvatar"
+                  @change="handleRelationAvatarUpload($event, 'category')"
+                />
+              </label>
+            </div>
+            <small v-if="uploadingCategoryAvatar" class="text-muted">
+              Загрузка...
+            </small>
           </div>
           <div v-if="categoryError" class="alert alert-danger mb-0">
             {{ categoryError }}
@@ -397,6 +427,8 @@ const showBrandModal = ref(false);
 const showCategoryModal = ref(false);
 const savingBrand = ref(false);
 const savingCategory = ref(false);
+const uploadingBrandAvatar = ref(false);
+const uploadingCategoryAvatar = ref(false);
 const brandError = ref('');
 const categoryError = ref('');
 
@@ -591,6 +623,52 @@ const handleFilesUpload = async (e: Event) => {
     } catch (err) {
       console.error('Error uploading file:', err);
     }
+  }
+};
+
+const handleRelationAvatarUpload = async (
+  e: Event,
+  relationType: 'brand' | 'category',
+) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+
+  if (!file) return;
+
+  if (relationType === 'brand') {
+    uploadingBrandAvatar.value = true;
+    brandError.value = '';
+  } else {
+    uploadingCategoryAvatar.value = true;
+    categoryError.value = '';
+  }
+
+  try {
+    const res = (await uploadFile(file)) as UploadResponse;
+    const path = res.path || res.url || res.filePath || '';
+
+    if (path && relationType === 'brand') {
+      brandForm.value.avatar = path;
+    }
+
+    if (path && relationType === 'category') {
+      categoryForm.value.avatar = path;
+    }
+  } catch (err: unknown) {
+    const message = getApiErrorMessage(err, 'Ошибка загрузки файла');
+
+    if (relationType === 'brand') {
+      brandError.value = message;
+    } else {
+      categoryError.value = message;
+    }
+  } finally {
+    if (relationType === 'brand') {
+      uploadingBrandAvatar.value = false;
+    } else {
+      uploadingCategoryAvatar.value = false;
+    }
+    input.value = '';
   }
 };
 
