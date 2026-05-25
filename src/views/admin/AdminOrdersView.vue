@@ -1,18 +1,22 @@
-<!-- src/views/client/OrdersView.vue -->
+<!-- src/views/admin/AdminOrdersView.vue -->
 <template>
   <div class="container">
     <div class="orders-shell mx-auto">
-      <h2 class="mb-4">Мои заказы</h2>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Управление заказами</h2>
+        <button class="btn btn-outline-secondary btn-sm" @click="loadOrders">
+          Обновить
+        </button>
+      </div>
 
       <div v-if="loading" class="text-center py-4">
         <div class="spinner-border text-warning"></div>
       </div>
 
-      <div v-else-if="orders.length === 0" class="text-center py-5">
-        <p class="text-muted fs-4">У вас пока нет заказов</p>
-        <router-link to="/catalog" class="btn btn-warning">
-          Перейти в каталог
-        </router-link>
+      <div v-else-if="orders.length === 0" class="card shadow-sm">
+        <div class="card-body text-center text-muted py-4">
+          Заказы не найдены
+        </div>
       </div>
 
       <div v-else class="d-flex flex-column gap-3">
@@ -56,6 +60,8 @@
           </div>
         </article>
       </div>
+
+      <div v-if="error" class="alert alert-danger mt-3">{{ error }}</div>
     </div>
   </div>
 </template>
@@ -81,9 +87,25 @@ interface Order {
 const router = useRouter();
 const orders = ref<Order[]>([]);
 const loading = ref(true);
+const error = ref('');
 
 const goToOrder = (id: string) => {
-  router.push(`/orders/${id}`);
+  router.push(`/admin/orders/${id}`);
+};
+
+const loadOrders = async () => {
+  loading.value = true;
+  error.value = '';
+
+  try {
+    const res = await client.get('/orders');
+    orders.value = res.data || [];
+  } catch (err) {
+    console.error(err);
+    error.value = 'Ошибка загрузки заказов';
+  } finally {
+    loading.value = false;
+  }
 };
 
 const formatDate = (dateStr: string) => {
@@ -91,21 +113,12 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString('ru-RU');
 };
 
-onMounted(async () => {
-  try {
-    const res = await client.get('/orders/my');
-    orders.value = res.data || [];
-  } catch (err) {
-    console.error(err);
-  } finally {
-    loading.value = false;
-  }
-});
+onMounted(loadOrders);
 </script>
 
 <style scoped>
 .orders-shell {
-  max-width: 880px;
+  max-width: 920px;
 }
 
 .order-card {

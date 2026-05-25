@@ -139,12 +139,19 @@
             :key="product.id"
             class="col-md-4 mb-4"
           >
-            <div class="card h-100">
+            <div
+              class="card h-100 catalog-product-card"
+              role="button"
+              tabindex="0"
+              @click="goToProduct(product.id)"
+              @keyup.enter="goToProduct(product.id)"
+              @keyup.space.prevent="goToProduct(product.id)"
+            >
               <img
                 v-if="product.images?.[0]"
                 :src="getImageUrl(product.images[0])"
                 class="card-img-top"
-                style="height: 200px; object-fit: cover"
+                style="height: 200px; object-fit: contain; background: #f8f9fa"
                 :alt="product.name"
               />
               <div
@@ -156,6 +163,15 @@
               </div>
               <div class="card-body d-flex flex-column">
                 <h6 class="card-title">{{ product.name }}</h6>
+                <small v-if="product.producers" class="text-muted mb-1">
+                  {{ product.producers.name }}
+                </small>
+                <span
+                  class="badge align-self-start mb-2"
+                  :class="getStockBadgeClass(product.stockQuantity)"
+                >
+                  {{ getStockLabel(product.stockQuantity) }}
+                </span>
                 <p class="card-text text-muted small flex-grow-1">
                   {{ product.description?.substring(0, 80) }}...
                 </p>
@@ -164,8 +180,9 @@
                     {{ formatPrice(product.price) }} ₽
                   </p>
                   <button
-                    @click="addToCart(product)"
+                    @click.stop="addToCart(product)"
                     class="btn btn-warning btn-sm"
+                    :disabled="product.stockQuantity <= 0"
                   >
                     🛒
                   </button>
@@ -222,19 +239,48 @@ const router = useRouter();
 const { getImageUrl } = useImageUrl();
 const cartStore = useCartStore();
 
-const products = ref<any[]>([]);
-const brands = ref<any[]>([]);
-const categories = ref<any[]>([]);
+interface Brand {
+  id: number;
+  name: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number | string;
+  stockQuantity: number;
+  images?: string[] | null;
+  producers?: Brand | null;
+  productsCategory?: Category[] | null;
+}
+
+interface ProductQueryParams {
+  page: number;
+  limit: number;
+  search?: string;
+  brandId?: number[];
+  categoryId?: number[];
+}
+
+const products = ref<CatalogProduct[]>([]);
+const brands = ref<Brand[]>([]);
+const categories = ref<Category[]>([]);
 const loading = ref(false);
 const search = ref('');
-const selectedBrands = ref<string[]>([]);
-const selectedCategories = ref<string[]>([]);
+const selectedBrands = ref<number[]>([]);
+const selectedCategories = ref<number[]>([]);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const totalProducts = ref(0);
 const limit = ref(24);
 
-let searchTimeout: any;
+let searchTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const hasActiveFilters = computed(() => {
   return (
@@ -256,34 +302,31 @@ const visiblePages = computed(() => {
 });
 
 // Синхронизация фильтров с URL
+const toNumberArray = (value: unknown): number[] => {
+  const values = Array.isArray(value)
+    ? value
+    : value !== undefined && value !== null
+      ? [value]
+      : [];
+
+  return values
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item > 0);
+};
+
 const syncFromUrl = () => {
   const query = route.query;
 
-  search.value = (query.search as string) || '';
+  search.value = typeof query.search === 'string' ? query.search : '';
   currentPage.value = Number(query.page) || 1;
   limit.value = Number(query.limit) || 24;
 
-  // Восстанавливаем бренды
-  if (query.brandId) {
-    selectedBrands.value = Array.isArray(query.brandId)
-      ? (query.brandId as string[])
-      : [query.brandId as string];
-  } else {
-    selectedBrands.value = [];
-  }
-
-  // Восстанавливаем категории
-  if (query.categoryId) {
-    selectedCategories.value = Array.isArray(query.categoryId)
-      ? (query.categoryId as string[])
-      : [query.categoryId as string];
-  } else {
-    selectedCategories.value = [];
-  }
+  selectedBrands.value = toNumberArray(query.brandId);
+  selectedCategories.value = toNumberArray(query.categoryId);
 };
 
 const syncToUrl = () => {
-  const query: any = {};
+  const query: Record<string, string | number | number[]> = {};
 
   if (search.value) query.search = search.value;
   if (currentPage.value > 1) query.page = currentPage.value;
@@ -313,7 +356,7 @@ const loadRelations = async () => {
 const loadProducts = async () => {
   loading.value = true;
   try {
-    const params: any = {
+    const params: ProductQueryParams = {
       page: currentPage.value,
       limit: limit.value,
     };
@@ -328,8 +371,6 @@ const loadProducts = async () => {
     if (selectedCategories.value.length > 0) {
       params.categoryId = selectedCategories.value;
     }
-
-    console.log('Request URL params:', params);
 
     const res = await client.get('/products/by-query', { params });
     products.value = res.data.data || [];
@@ -383,19 +424,42 @@ const changePage = (page: number) => {
   }
 };
 
-const addToCart = (product: any) => {
+const goToProduct = (id: string) => {
+  router.push(`/product/${id}`);
+};
+
+const addToCart = (product: CatalogProduct) => {
+  const currentCount =
+    cartStore.items.find((item) => item.productId === product.id)?.count || 0;
+
+  if (product.stockQuantity <= currentCount) {
+    return;
+  }
+
   cartStore.addItem({
     productId: product.id,
     name: product.name,
-    price: product.price,
+    price: Number(product.price) || 0,
     count: 1,
     photo: product.images?.[0] || '',
-    brand: product.producer?.name || '',
+    brand: product.producers?.name || '',
   });
 };
 
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('ru-RU').format(price);
+const formatPrice = (price: number | string) => {
+  return new Intl.NumberFormat('ru-RU').format(Number(price) || 0);
+};
+
+const getStockBadgeClass = (quantity: number) => {
+  if (quantity <= 0) return 'bg-danger';
+  if (quantity <= 5) return 'bg-warning text-dark';
+  return 'bg-success';
+};
+
+const getStockLabel = (quantity: number) => {
+  if (quantity <= 0) return 'Нет в наличии';
+  if (quantity <= 5) return `Мало: ${quantity} шт.`;
+  return `${quantity} шт.`;
 };
 
 // Следим за изменениями фильтров и обновляем URL
@@ -417,3 +481,14 @@ onMounted(async () => {
   await loadProducts();
 });
 </script>
+
+<style scoped>
+.catalog-product-card {
+  cursor: pointer;
+}
+
+.catalog-product-card:focus-visible {
+  outline: 3px solid rgba(255, 193, 7, 0.5);
+  outline-offset: 2px;
+}
+</style>

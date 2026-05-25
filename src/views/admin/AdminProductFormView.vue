@@ -49,13 +49,22 @@
               <div class="row">
                 <div class="col-md-6">
                   <div class="mb-3">
-                    <label class="form-label">Бренд *</label>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <label class="form-label">Бренд *</label>
+                      <button
+                        type="button"
+                        class="btn btn-link btn-sm text-decoration-none p-0"
+                        @click="openBrandModal"
+                      >
+                        + Добавить бренд
+                      </button>
+                    </div>
                     <select
                       v-model="form.producersId"
                       class="form-select"
                       required
                     >
-                      <option value="">Выберите бренд</option>
+                      <option :value="null" disabled>Выберите бренд</option>
                       <option
                         v-for="brand in brands"
                         :key="brand.id"
@@ -80,7 +89,16 @@
               </div>
 
               <div class="mb-3">
-                <label class="form-label">Категории</label>
+                <div class="d-flex justify-content-between align-items-center">
+                  <label class="form-label">Категории</label>
+                  <button
+                    type="button"
+                    class="btn btn-link btn-sm text-decoration-none p-0"
+                    @click="openCategoryModal"
+                  >
+                    + Добавить категорию
+                  </button>
+                </div>
                 <div class="row">
                   <div
                     v-for="category in categories"
@@ -196,6 +214,116 @@
       </div>
     </div>
   </div>
+
+  <div
+    v-if="showBrandModal"
+    class="modal fade show d-block"
+    tabindex="-1"
+    role="dialog"
+  >
+    <div class="modal-dialog">
+      <form class="modal-content" @submit.prevent="createBrand">
+        <div class="modal-header">
+          <h5 class="modal-title">Новый бренд</h5>
+          <button type="button" class="btn-close" @click="closeBrandModal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Название *</label>
+            <input v-model.trim="brandForm.name" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Описание *</label>
+            <textarea
+              v-model.trim="brandForm.description"
+              class="form-control"
+              rows="3"
+              required
+            ></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Аватар *</label>
+            <input v-model.trim="brandForm.avatar" class="form-control" required />
+          </div>
+          <div v-if="brandError" class="alert alert-danger mb-0">
+            {{ brandError }}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" @click="closeBrandModal">
+            Отмена
+          </button>
+          <button type="submit" class="btn btn-warning" :disabled="savingBrand">
+            {{ savingBrand ? 'Сохранение...' : 'Создать бренд' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div v-if="showBrandModal" class="modal-backdrop fade show"></div>
+
+  <div
+    v-if="showCategoryModal"
+    class="modal fade show d-block"
+    tabindex="-1"
+    role="dialog"
+  >
+    <div class="modal-dialog">
+      <form class="modal-content" @submit.prevent="createCategory">
+        <div class="modal-header">
+          <h5 class="modal-title">Новая категория</h5>
+          <button
+            type="button"
+            class="btn-close"
+            @click="closeCategoryModal"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Название *</label>
+            <input
+              v-model.trim="categoryForm.name"
+              class="form-control"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Описание *</label>
+            <textarea
+              v-model.trim="categoryForm.description"
+              class="form-control"
+              rows="3"
+              required
+            ></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Аватар *</label>
+            <input
+              v-model.trim="categoryForm.avatar"
+              class="form-control"
+              required
+            />
+          </div>
+          <div v-if="categoryError" class="alert alert-danger mb-0">
+            {{ categoryError }}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            @click="closeCategoryModal"
+          >
+            Отмена
+          </button>
+          <button type="submit" class="btn btn-warning" :disabled="savingCategory">
+            {{ savingCategory ? 'Сохранение...' : 'Создать категорию' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div v-if="showCategoryModal" class="modal-backdrop fade show"></div>
 </template>
 
 <script setup lang="ts">
@@ -213,11 +341,51 @@ const { uploadFile } = useUpload();
 interface Brand {
   id: number;
   name: string;
+  description?: string;
+  avatar?: string;
 }
 
 interface Category {
   id: number;
   name: string;
+  description?: string;
+  avatar?: string;
+}
+
+interface ProductResponse {
+  name?: string;
+  description?: string | null;
+  price?: number | string;
+  stockQuantity?: number;
+  images?: string[] | null;
+  producers?: Brand | null;
+  producer?: Brand | null;
+  producersId?: number | null;
+  productsCategory?: Category[] | null;
+  categories?: Category[] | null;
+  productsCategoryIds?: number[] | null;
+}
+
+interface ProductPayload {
+  name: string;
+  description: string;
+  price: number;
+  stockQuantity: number;
+  images: string[];
+  producersId: number;
+  productsCategoryIds: number[];
+}
+
+interface UploadResponse {
+  path?: string;
+  url?: string;
+  filePath?: string;
+}
+
+interface RelationForm {
+  name: string;
+  description: string;
+  avatar: string;
 }
 
 const isEdit = ref(false);
@@ -225,6 +393,26 @@ const saving = ref(false);
 const error = ref('');
 const brands = ref<Brand[]>([]);
 const categories = ref<Category[]>([]);
+const showBrandModal = ref(false);
+const showCategoryModal = ref(false);
+const savingBrand = ref(false);
+const savingCategory = ref(false);
+const brandError = ref('');
+const categoryError = ref('');
+
+const defaultAvatar = 'uploads/default-avatar.png';
+
+const brandForm = ref<RelationForm>({
+  name: '',
+  description: '',
+  avatar: defaultAvatar,
+});
+
+const categoryForm = ref<RelationForm>({
+  name: '',
+  description: '',
+  avatar: defaultAvatar,
+});
 
 const form = ref({
   name: '',
@@ -249,22 +437,126 @@ const loadRelations = async () => {
 const loadProduct = async (id: string) => {
   try {
     const res = await client.get(`/products/by-id/${id}`);
-    const product = res.data;
+    const product = res.data as ProductResponse;
     form.value = {
       name: product.name || '',
       description: product.description || '',
-      price: product.price || 0,
+      price: Number(product.price) || 0,
       stockQuantity: product.stockQuantity || 0,
       images: product.images || [],
-      producersId: product.producer?.id || product.producersId || null,
+      producersId:
+        product.producers?.id ||
+        product.producer?.id ||
+        product.producersId ||
+        null,
       productsCategoryIds:
-        product.categories?.map((c: any) => c.id) ||
+        product.productsCategory?.map((category) => category.id) ||
+        product.categories?.map((category) => category.id) ||
         product.productsCategoryIds ||
         [],
     };
   } catch (err) {
     console.error('Error loading product:', err);
     error.value = 'Ошибка загрузки продукта';
+  }
+};
+
+const getApiErrorMessage = (err: unknown, fallback: string) => {
+  const responseError = err as {
+    response?: { data?: { message?: string | string[] } };
+  };
+  const message = responseError.response?.data?.message;
+
+  if (Array.isArray(message)) {
+    return message.join(', ');
+  }
+
+  return message || fallback;
+};
+
+const resetBrandForm = () => {
+  brandForm.value = {
+    name: '',
+    description: '',
+    avatar: defaultAvatar,
+  };
+};
+
+const resetCategoryForm = () => {
+  categoryForm.value = {
+    name: '',
+    description: '',
+    avatar: defaultAvatar,
+  };
+};
+
+const openBrandModal = () => {
+  brandError.value = '';
+  showBrandModal.value = true;
+};
+
+const closeBrandModal = () => {
+  showBrandModal.value = false;
+  brandError.value = '';
+  resetBrandForm();
+};
+
+const openCategoryModal = () => {
+  categoryError.value = '';
+  showCategoryModal.value = true;
+};
+
+const closeCategoryModal = () => {
+  showCategoryModal.value = false;
+  categoryError.value = '';
+  resetCategoryForm();
+};
+
+const createBrand = async () => {
+  savingBrand.value = true;
+  brandError.value = '';
+
+  try {
+    const res = await client.post<Brand>('/admin/brands', brandForm.value);
+    const brand = res.data;
+    brands.value = [...brands.value, brand].sort((a, b) =>
+      a.name.localeCompare(b.name, 'ru'),
+    );
+    form.value.producersId = brand.id;
+    closeBrandModal();
+  } catch (err: unknown) {
+    brandError.value = getApiErrorMessage(err, 'Ошибка создания бренда');
+  } finally {
+    savingBrand.value = false;
+  }
+};
+
+const createCategory = async () => {
+  savingCategory.value = true;
+  categoryError.value = '';
+
+  try {
+    const res = await client.post<Category>(
+      '/admin/categories',
+      categoryForm.value,
+    );
+    const category = res.data;
+    categories.value = [...categories.value, category].sort((a, b) =>
+      a.name.localeCompare(b.name, 'ru'),
+    );
+
+    if (!form.value.productsCategoryIds.includes(category.id)) {
+      form.value.productsCategoryIds.push(category.id);
+    }
+
+    closeCategoryModal();
+  } catch (err: unknown) {
+    categoryError.value = getApiErrorMessage(
+      err,
+      'Ошибка создания категории',
+    );
+  } finally {
+    savingCategory.value = false;
   }
 };
 
@@ -291,7 +583,7 @@ const handleFilesUpload = async (e: Event) => {
 
   for (const file of Array.from(files)) {
     try {
-      const res = await uploadFile(file);
+      const res = (await uploadFile(file)) as UploadResponse;
       const path = res.path || res.url || res.filePath || '';
       if (path) {
         form.value.images.push(path);
@@ -307,8 +599,14 @@ const handleSubmit = async () => {
   error.value = '';
 
   try {
-    const payload = {
+    if (form.value.producersId === null) {
+      error.value = 'Выберите бренд';
+      return;
+    }
+
+    const payload: ProductPayload = {
       ...form.value,
+      producersId: form.value.producersId,
       images: form.value.images.filter((img) => img.trim() !== ''),
     };
 
@@ -321,8 +619,8 @@ const handleSubmit = async () => {
       await client.post('/admin/products', payload);
     }
     router.push('/admin/products');
-  } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка сохранения';
+  } catch (err: unknown) {
+    error.value = getApiErrorMessage(err, 'Ошибка сохранения');
   } finally {
     saving.value = false;
   }

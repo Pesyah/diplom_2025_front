@@ -1,6 +1,6 @@
 <!-- src/App.vue -->
 <template>
-  <div class="min-vh-100 bg-light">
+  <div class="min-vh-100 bg-light d-flex flex-column">
     <!-- Навигация -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
       <div class="container">
@@ -25,6 +25,11 @@
           <ul class="navbar-nav me-auto">
             <!-- Админ меню -->
             <template v-if="isAuthenticated && isAdmin">
+              <li class="nav-item">
+                <router-link to="/admin/dashboard" class="nav-link">
+                  Дашборд
+                </router-link>
+              </li>
               <li class="nav-item dropdown">
                 <a
                   class="nav-link dropdown-toggle"
@@ -174,7 +179,7 @@
     </nav>
 
     <!-- Контент -->
-    <main class="py-4">
+    <main class="py-4 flex-grow-1">
       <RouterView />
     </main>
 

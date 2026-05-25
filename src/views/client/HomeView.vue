@@ -27,7 +27,14 @@
         :key="category.id"
         class="col-md-3 mb-3"
       >
-        <div class="card h-100">
+        <div
+          class="card h-100 home-link-card"
+          role="button"
+          tabindex="0"
+          @click="goToCatalog(category.id)"
+          @keyup.enter="goToCatalog(category.id)"
+          @keyup.space.prevent="goToCatalog(category.id)"
+        >
           <img
             :src="getImageUrl(category.avatar)"
             class="card-img-top p-3"
@@ -38,7 +45,7 @@
             <h6 class="card-title">{{ category.name }}</h6>
             <button
               class="btn btn-outline-warning btn-sm"
-              @click="goToCatalog(category.id)"
+              @click.stop="goToCatalog(category.id)"
             >
               Смотреть
             </button>
@@ -55,9 +62,22 @@
         :key="brand.id"
         class="col-md-2 col-4 mb-3"
       >
-        <div class="card h-100">
+        <div
+          class="card h-100 home-link-card"
+          role="button"
+          tabindex="0"
+          @click="goToCatalog(undefined, brand.id)"
+          @keyup.enter="goToCatalog(undefined, brand.id)"
+          @keyup.space.prevent="goToCatalog(undefined, brand.id)"
+        >
           <div class="card-body text-center">
-            <h6 class="card-title mb-0">{{ brand.name }}</h6>
+            <h6 class="card-title">{{ brand.name }}</h6>
+            <button
+              class="btn btn-outline-warning btn-sm"
+              @click.stop="goToCatalog(undefined, brand.id)"
+            >
+              Смотреть
+            </button>
           </div>
         </div>
       </div>
@@ -74,8 +94,19 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const { getImageUrl } = useImageUrl();
 
-const categories = ref<any[]>([]);
-const brands = ref<any[]>([]);
+interface Category {
+  id: number;
+  name: string;
+  avatar: string;
+}
+
+interface Brand {
+  id: number;
+  name: string;
+}
+
+const categories = ref<Category[]>([]);
+const brands = ref<Brand[]>([]);
 
 const loadData = async () => {
   try {
@@ -87,9 +118,11 @@ const loadData = async () => {
   }
 };
 
-const goToCatalog = (categoryId?: number) => {
+const goToCatalog = (categoryId?: number, brandId?: number) => {
   if (categoryId) {
-    router.push(`/catalog?categoryId=${categoryId}`);
+    router.push({ path: '/catalog', query: { categoryId } });
+  } else if (brandId) {
+    router.push({ path: '/catalog', query: { brandId } });
   } else {
     router.push('/catalog');
   }
@@ -97,3 +130,14 @@ const goToCatalog = (categoryId?: number) => {
 
 onMounted(loadData);
 </script>
+
+<style scoped>
+.home-link-card {
+  cursor: pointer;
+}
+
+.home-link-card:focus-visible {
+  outline: 3px solid rgba(255, 193, 7, 0.5);
+  outline-offset: 2px;
+}
+</style>

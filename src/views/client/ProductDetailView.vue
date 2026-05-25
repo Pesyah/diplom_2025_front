@@ -41,8 +41,8 @@
 
         <h1 class="mb-2">{{ product.name }}</h1>
 
-        <p v-if="product.producer" class="text-muted">
-          Бренд: <strong>{{ product.producer.name }}</strong>
+        <p v-if="product.producers" class="text-muted">
+          Бренд: <strong>{{ product.producers.name }}</strong>
         </p>
 
         <div class="mb-3">
@@ -52,14 +52,8 @@
         </div>
 
         <div class="mb-3">
-          <span
-            :class="product.stockQuantity > 0 ? 'text-success' : 'text-danger'"
-          >
-            {{
-              product.stockQuantity > 0
-                ? `В наличии: ${product.stockQuantity} шт.`
-                : 'Нет в наличии'
-            }}
+          <span class="badge fs-6" :class="getStockBadgeClass(product.stockQuantity)">
+            {{ getStockLabel(product.stockQuantity) }}
           </span>
         </div>
 
@@ -68,10 +62,10 @@
           <p class="text-muted">{{ product.description }}</p>
         </div>
 
-        <div v-if="product.categories?.length" class="mb-4">
+        <div v-if="product.productsCategory?.length" class="mb-4">
           <h6>Категории:</h6>
           <span
-            v-for="category in product.categories"
+            v-for="category in product.productsCategory"
             :key="category.id"
             class="badge bg-secondary me-1"
           >
@@ -109,23 +103,64 @@ const route = useRoute();
 const { getImageUrl } = useImageUrl();
 const cartStore = useCartStore();
 
-const product = ref<any>(null);
+interface Brand {
+  id: number;
+  name: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface ProductDetail {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number | string;
+  stockQuantity: number;
+  images?: string[] | null;
+  producers?: Brand | null;
+  productsCategory?: Category[] | null;
+}
+
+const product = ref<ProductDetail | null>(null);
 const loading = ref(true);
 
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('ru-RU').format(price);
+const formatPrice = (price: number | string) => {
+  return new Intl.NumberFormat('ru-RU').format(Number(price) || 0);
+};
+
+const getStockBadgeClass = (quantity: number) => {
+  if (quantity <= 0) return 'bg-danger';
+  if (quantity <= 5) return 'bg-warning text-dark';
+  return 'bg-success';
+};
+
+const getStockLabel = (quantity: number) => {
+  if (quantity <= 0) return 'Нет в наличии';
+  if (quantity <= 5) return `Мало: ${quantity} шт.`;
+  return `В наличии: ${quantity} шт.`;
 };
 
 const addToCart = () => {
   if (!product.value) return;
 
+  const currentCount =
+    cartStore.items.find((item) => item.productId === product.value?.id)
+      ?.count || 0;
+
+  if (product.value.stockQuantity <= currentCount) {
+    return;
+  }
+
   cartStore.addItem({
     productId: product.value.id,
     name: product.value.name,
-    price: product.value.price,
+    price: Number(product.value.price) || 0,
     count: 1,
     photo: product.value.images?.[0] || '',
-    brand: product.value.producer?.name || '',
+    brand: product.value.producers?.name || '',
   });
 
   alert('Товар добавлен в корзину!');
@@ -135,7 +170,7 @@ onMounted(async () => {
   try {
     const id = route.params.id as string;
     const res = await client.get(`/products/by-id/${id}`);
-    product.value = res.data;
+    product.value = res.data as ProductDetail;
   } catch (err) {
     console.error(err);
   } finally {

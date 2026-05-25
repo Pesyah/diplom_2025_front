@@ -160,7 +160,7 @@
                     >{{ product.description?.substring(0, 80) }}...</small
                   >
                 </td>
-                <td>{{ product.producer?.name || '—' }}</td>
+                <td>{{ product.producers?.name || '—' }}</td>
                 <td>
                   <span class="text-warning fw-bold"
                     >{{ formatPrice(product.price) }} ₽</span
@@ -168,11 +168,10 @@
                 </td>
                 <td>
                   <span
-                    :class="
-                      product.stockQuantity > 0 ? 'text-success' : 'text-danger'
-                    "
+                    class="badge"
+                    :class="getStockBadgeClass(product.stockQuantity)"
                   >
-                    {{ product.stockQuantity }} шт.
+                    {{ getStockLabel(product.stockQuantity) }}
                   </span>
                 </td>
                 <td>
@@ -238,18 +237,46 @@ import { computed, onMounted, ref } from 'vue';
 
 const { getImageUrl } = useImageUrl();
 
-const products = ref<any[]>([]);
-const brands = ref<any[]>([]);
-const categories = ref<any[]>([]);
+interface Brand {
+  id: number;
+  name: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface AdminProduct {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number | string;
+  stockQuantity: number;
+  images?: string[] | null;
+  producers?: Brand | null;
+}
+
+interface ProductQueryParams {
+  page: number;
+  limit: number;
+  search?: string;
+  brandId?: number[];
+  categoryId?: number[];
+}
+
+const products = ref<AdminProduct[]>([]);
+const brands = ref<Brand[]>([]);
+const categories = ref<Category[]>([]);
 const loading = ref(false);
 const search = ref('');
-const selectedBrands = ref<string[]>([]);
-const selectedCategories = ref<string[]>([]);
+const selectedBrands = ref<number[]>([]);
+const selectedCategories = ref<number[]>([]);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const limit = 20;
 
-let searchTimeout: any;
+let searchTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const hasActiveFilters = computed(() => {
   return (
@@ -272,7 +299,7 @@ const loadRelations = async () => {
 const loadProducts = async () => {
   loading.value = true;
   try {
-    const params: any = {
+    const params: ProductQueryParams = {
       page: currentPage.value,
       limit,
     };
@@ -287,8 +314,6 @@ const loadProducts = async () => {
     if (selectedCategories.value.length > 0) {
       params.categoryId = selectedCategories.value;
     }
-
-    console.log('Request params:', params); // Для отладки
 
     const res = await client.get('/admin/products', { params });
     products.value = res.data.data || [];
@@ -350,8 +375,20 @@ const deleteProduct = async (id: string) => {
   }
 };
 
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('ru-RU').format(price);
+const formatPrice = (price: number | string) => {
+  return new Intl.NumberFormat('ru-RU').format(Number(price) || 0);
+};
+
+const getStockBadgeClass = (quantity: number) => {
+  if (quantity <= 0) return 'bg-danger';
+  if (quantity <= 5) return 'bg-warning text-dark';
+  return 'bg-success';
+};
+
+const getStockLabel = (quantity: number) => {
+  if (quantity <= 0) return 'Нет в наличии';
+  if (quantity <= 5) return `Мало: ${quantity} шт.`;
+  return `${quantity} шт.`;
 };
 
 onMounted(() => {

@@ -9,9 +9,13 @@ const ProfileView = () => import('@/views/auth/ProfileView.vue');
 const CreateAdminView = () => import('@/views/auth/CreateAdminView.vue');
 
 // Admin views
+const AdminDashboardView = () => import('@/views/admin/AdminDashboardView.vue');
 const AdminProductsView = () => import('@/views/admin/AdminProductsView.vue');
 const AdminProductFormView = () =>
   import('@/views/admin/AdminProductFormView.vue');
+const AdminOrdersView = () => import('@/views/admin/AdminOrdersView.vue');
+const AdminOrderDetailView = () =>
+  import('@/views/admin/AdminOrderDetailView.vue');
 const AdminBrandsView = () => import('@/views/admin/AdminBrandsView.vue');
 const AdminBrandFormView = () => import('@/views/admin/AdminBrandFormView.vue');
 const AdminBrandDetailView = () =>
@@ -27,6 +31,7 @@ const CatalogView = () => import('@/views/client/CatalogView.vue');
 const ProductDetailView = () => import('@/views/client/ProductDetailView.vue');
 const CartView = () => import('@/views/client/CartView.vue');
 const OrdersView = () => import('@/views/client/OrdersView.vue');
+const OrderDetailView = () => import('@/views/client/OrderDetailView.vue');
 
 const router = createRouter({
   history: createWebHistory(),
@@ -43,6 +48,11 @@ const router = createRouter({
 
     // Admin routes
     {
+      path: '/admin/dashboard',
+      component: AdminDashboardView,
+      meta: { requiresAuth: true, admin: true },
+    },
+    {
       path: '/admin/products',
       component: AdminProductsView,
       meta: { requiresAuth: true, admin: true },
@@ -55,6 +65,16 @@ const router = createRouter({
     {
       path: '/admin/products/:id/edit',
       component: AdminProductFormView,
+      meta: { requiresAuth: true, admin: true },
+    },
+    {
+      path: '/admin/orders',
+      component: AdminOrdersView,
+      meta: { requiresAuth: true, admin: true },
+    },
+    {
+      path: '/admin/orders/:id',
+      component: AdminOrderDetailView,
       meta: { requiresAuth: true, admin: true },
     },
     {
@@ -94,11 +114,28 @@ const router = createRouter({
     },
 
     // Client routes
-    { path: '/', component: HomeView },
-    { path: '/catalog', component: CatalogView },
-    { path: '/product/:id', component: ProductDetailView },
-    { path: '/cart', component: CartView, meta: { requiresAuth: true } },
-    { path: '/orders', component: OrdersView, meta: { requiresAuth: true } },
+    { path: '/', component: HomeView, meta: { clientOnly: true } },
+    { path: '/catalog', component: CatalogView, meta: { clientOnly: true } },
+    {
+      path: '/product/:id',
+      component: ProductDetailView,
+      meta: { clientOnly: true },
+    },
+    {
+      path: '/cart',
+      component: CartView,
+      meta: { requiresAuth: true, clientOnly: true },
+    },
+    {
+      path: '/orders',
+      component: OrdersView,
+      meta: { requiresAuth: true, clientOnly: true },
+    },
+    {
+      path: '/orders/:id',
+      component: OrderDetailView,
+      meta: { requiresAuth: true, clientOnly: true },
+    },
   ],
 });
 
@@ -123,6 +160,10 @@ router.beforeEach(async (to, from, next) => {
 
   if (to.meta.admin && userStore.user?.roleType?.name !== 'admin') {
     return next('/');
+  }
+
+  if (to.meta.clientOnly && userStore.user?.roleType?.name === 'admin') {
+    return next('/admin/dashboard');
   }
 
   next();

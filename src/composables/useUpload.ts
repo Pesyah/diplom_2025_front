@@ -2,6 +2,11 @@
 import client from '@/api/client';
 import { ref } from 'vue';
 
+interface UploadResponse {
+  path?: string;
+  [key: string]: unknown;
+}
+
 export const useUpload = () => {
   const uploading = ref(false);
   const uploadError = ref('');
@@ -14,7 +19,7 @@ export const useUpload = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await client.post('/documents/upload', formData, {
+      const res = await client.post<UploadResponse>('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -26,9 +31,12 @@ export const useUpload = () => {
         // path приходит в формате "uploads\\documents\\file.png"
         url: res.data.path?.replace(/\\/g, '/') || '',
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const responseError = err as {
+        response?: { data?: { message?: string } };
+      };
       uploadError.value =
-        err.response?.data?.message || 'Ошибка загрузки файла';
+        responseError.response?.data?.message || 'Ошибка загрузки файла';
       console.error('Upload error:', err);
       throw err;
     } finally {
