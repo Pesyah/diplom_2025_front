@@ -39,6 +39,11 @@
                 </router-link>
               </li>
               <li class="nav-item">
+                <router-link to="/admin/reports" class="nav-link px-3" style="color: #bfc9ed" active-class="active-link">
+                  📈 Отчеты
+                </router-link>
+              </li>
+              <li class="nav-item">
                 <router-link to="/admin/rooms" class="nav-link px-3" style="color: #bfc9ed" active-class="active-link">
                   🏨 Номера
                 </router-link>

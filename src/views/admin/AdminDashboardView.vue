@@ -74,6 +74,14 @@
           </div>
         </router-link>
       </div>
+      <div class="col-md-4">
+        <router-link to="/admin/reports" class="text-decoration-none">
+          <div class="card shadow-sm p-4" style="cursor: pointer">
+            <div class="fs-4">📈 Отчеты</div>
+            <small class="text-muted">Выручка и загрузка по комнатам и месяцам</small>
+          </div>
+        </router-link>
+      </div>
     </div>
 
     <!-- Админ: быстрые ссылки -->

@@ -19,6 +19,7 @@ const AdminDashboardView = () => import('@/views/admin/AdminDashboardView.vue');
 const AdminRoomsView = () => import('@/views/admin/AdminRoomsView.vue');
 const AdminReservationsView = () =>
   import('@/views/admin/AdminReservationsView.vue');
+const AdminReportsView = () => import('@/views/admin/AdminReportsView.vue');
 const AdminUsersView = () => import('@/views/admin/AdminUsersView.vue');
 const AdminAmenitiesView = () => import('@/views/admin/AdminAmenitiesView.vue');
 
@@ -79,6 +80,11 @@ const router = createRouter({
     {
       path: '/admin/reservations',
       component: AdminReservationsView,
+      meta: { requiresAuth: true, staffOnly: true },
+    },
+    {
+      path: '/admin/reports',
+      component: AdminReportsView,
       meta: { requiresAuth: true, staffOnly: true },
     },
     {
