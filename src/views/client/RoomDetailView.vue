@@ -87,6 +87,17 @@
                   <p class="text-muted mb-0">
                     {{ room.description || 'Описание отсутствует' }}
                   </p>
+                  <div class="mt-2">
+                    <span
+                      class="rating-pill"
+                      :style="getRatingBadgeStyle(room.rating)"
+                    >
+                      ★ {{ formatRating(room.rating) }}
+                    </span>
+                    <span class="text-muted fw-normal">
+                      · {{ reviews.length }} {{ reviewWord }}
+                    </span>
+                  </div>
                 </div>
                 <span
                   class="badge fs-6"
@@ -137,6 +148,132 @@
               </div>
             </div>
           </div>
+
+          <div class="card shadow-sm mt-4">
+            <div class="card-body">
+              <div class="reviews-head mb-3">
+                <div>
+                  <h5 class="mb-1" style="color: #4c4993">Отзывы</h5>
+                  <small class="text-muted">
+                    {{ reviews.length }} {{ reviewWord }} по этому номеру
+                  </small>
+                </div>
+                <div
+                  class="reviews-score"
+                  :style="getRatingBadgeStyle(room.rating)"
+                >
+                  <span>★ {{ formatRating(room.rating) }}</span>
+                  <small>{{ getRatingLabel(room.rating) }}</small>
+                </div>
+              </div>
+
+              <form
+                v-if="canLeaveReview"
+                class="review-form mb-4"
+                @submit.prevent="handleReviewSubmit"
+              >
+                <p v-if="reviewError" class="alert alert-danger">
+                  {{ reviewError }}
+                </p>
+                <p v-if="reviewSuccess" class="alert alert-success">
+                  Отзыв сохранен
+                </p>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Оценка</label>
+                    <div class="rating-picker">
+                      <button
+                        v-for="value in [1, 2, 3, 4, 5]"
+                        :key="value"
+                        type="button"
+                        class="rating-choice"
+                        :class="{ active: reviewForm.rating === value }"
+                        :style="
+                          reviewForm.rating === value
+                            ? getRatingBadgeStyle(value)
+                            : {}
+                        "
+                        @click="reviewForm.rating = value"
+                      >
+                        {{ value }}
+                      </button>
+                    </div>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label">Отзыв</label>
+                    <textarea
+                      v-model="reviewForm.text"
+                      class="form-control"
+                      rows="2"
+                      required
+                    ></textarea>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  class="btn mt-3"
+                  style="background-color: #4c4993; color: #fff"
+                  :disabled="reviewSubmitting"
+                >
+                  {{ reviewSubmitting ? 'Сохранение...' : 'Оставить отзыв' }}
+                </button>
+              </form>
+
+              <div v-else-if="myReview" class="my-review-note mb-4">
+                <div
+                  class="rating-pill"
+                  :style="getRatingBadgeStyle(myReview.rating)"
+                >
+                  ★ {{ myReview.rating }}
+                </div>
+                <div>
+                  <small class="text-muted">Ваш отзыв по этому номеру</small>
+                  <p class="mb-0">{{ myReview.text }}</p>
+                </div>
+              </div>
+              <div
+                v-else-if="isAuthenticated && isGuest && !hasCompletedReservation"
+                class="alert alert-light border"
+              >
+                Отзыв можно оставить после завершенной брони этого номера.
+              </div>
+
+              <div v-if="reviews.length === 0" class="text-muted">
+                Отзывов пока нет
+              </div>
+              <div v-else class="review-list">
+                <div
+                  v-for="review in reviews"
+                  :key="review.id"
+                  class="review-item"
+                  :style="getReviewCardStyle(review.rating)"
+                >
+                  <div class="review-top">
+                    <div class="review-author">
+                      <div class="review-avatar">
+                        {{ getReviewInitials(review) }}
+                      </div>
+                      <div>
+                        <div class="fw-semibold">
+                          {{ review.user.surname }} {{ review.user.name }}
+                        </div>
+                        <small class="text-muted">
+                          {{ formatDate(review.createdAt) }}
+                        </small>
+                      </div>
+                    </div>
+                    <div
+                      class="rating-pill"
+                      :style="getRatingBadgeStyle(review.rating)"
+                    >
+                      ★ {{ review.rating }}
+                    </div>
+                  </div>
+                  <p class="review-text">{{ review.text }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Боковая панель -->
@@ -164,6 +301,10 @@
               <div class="d-flex justify-content-between mb-1">
                 <span class="text-muted">Статус:</span>
                 <span>{{ room.roomsStatus?.name }}</span>
+              </div>
+              <div class="d-flex justify-content-between mb-1">
+                <span class="text-muted">Рейтинг:</span>
+                <span>★ {{ formatRating(room.rating) }}</span>
               </div>
             </div>
 
@@ -211,12 +352,35 @@ interface Room {
   roomsType: { id: number; name: string } | null;
   roomsStatus: { id: number; name: string } | null;
   pricePerNight: number;
+  rating: number;
   floor: number | null;
   capacity: number;
   bedsCount: number;
   description: string | null;
   amenities: Amenity[];
   photos: string[];
+}
+interface RoomReview {
+  id: string;
+  text: string;
+  rating: number;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    surname: string;
+  };
+}
+interface Reservation {
+  room: { id: string } | null;
+  reservationStatus: { id: number } | null;
+}
+interface ApiErrorResponse {
+  response?: {
+    data?: {
+      message?: string | string[];
+    };
+  };
 }
 
 const route = useRoute();
@@ -225,18 +389,46 @@ const userStore = useUserStore();
 const { getImageUrl } = useImageUrl();
 
 const room = ref<Room | null>(null);
+const reviews = ref<RoomReview[]>([]);
 const loading = ref(true);
 const selectedPhotoIndex = ref(0);
+const hasCompletedReservation = ref(false);
+const reviewSubmitting = ref(false);
+const reviewError = ref('');
+const reviewSuccess = ref(false);
+const reviewForm = ref({
+  rating: 5,
+  text: '',
+});
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const isGuest = computed(() => userStore.user?.roleType?.name === 'guest');
+const currentUserId = computed(() => userStore.user?.id as string | undefined);
 const photoUrls = computed(() =>
   room.value?.photos?.map((photo) => getImageUrl(photo)) ?? [],
 );
 const mainPhotoUrl = computed(() => photoUrls.value[selectedPhotoIndex.value] ?? '');
 const canBook = computed(
   () =>
-    isAuthenticated.value && isGuest.value && room.value?.roomsStatus?.id === 1,
+    isAuthenticated.value && isGuest.value && room.value?.roomsStatus?.id !== 3,
 );
+const myReview = computed(() =>
+  reviews.value.find((review) => review.user.id === currentUserId.value),
+);
+const canLeaveReview = computed(
+  () =>
+    isAuthenticated.value &&
+    isGuest.value &&
+    hasCompletedReservation.value &&
+    !myReview.value,
+);
+const reviewWord = computed(() => {
+  const count = reviews.value.length;
+  if (count % 10 === 1 && count % 100 !== 11) return 'отзыв';
+  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+    return 'отзыва';
+  }
+  return 'отзывов';
+});
 
 const getStatusStyle = (id: number | undefined) => {
   if (id === 1) return { backgroundColor: '#a1cdc4', color: '#1a3c34' };
@@ -248,6 +440,52 @@ const getStatusStyle = (id: number | undefined) => {
 const goToBooking = () => {
   router.push(`/booking/${route.params.id}`);
 };
+
+const formatRating = (rating: number | null | undefined) =>
+  (Number(rating) || 0).toFixed(1);
+
+const formatDate = (date: string) =>
+  new Date(date).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+const getErrorMessage = (err: unknown, fallback: string) => {
+  const message = (err as ApiErrorResponse).response?.data?.message;
+  return Array.isArray(message) ? message.join(', ') : message || fallback;
+};
+
+const getRatingBadgeStyle = (rating: number | null | undefined) => {
+  const value = Number(rating) || 0;
+
+  if (value >= 4.5) {
+    return { backgroundColor: '#e7f6ef', color: '#1f7a4f', borderColor: '#9dd9bd' };
+  }
+  if (value >= 4) {
+    return { backgroundColor: '#edf1ff', color: '#4c4993', borderColor: '#bfc9ed' };
+  }
+  if (value >= 3) {
+    return { backgroundColor: '#fff6d8', color: '#8a6500', borderColor: '#efd57a' };
+  }
+  return { backgroundColor: '#fde8e8', color: '#c0392b', borderColor: '#f0b3b3' };
+};
+
+const getReviewCardStyle = (rating: number) => ({
+  borderLeftColor: getRatingBadgeStyle(rating).color,
+});
+
+const getRatingLabel = (rating: number | null | undefined) => {
+  const value = Number(rating) || 0;
+
+  if (value >= 4.5) return 'отлично';
+  if (value >= 4) return 'хорошо';
+  if (value >= 3) return 'нормально';
+  return 'есть вопросы';
+};
+
+const getReviewInitials = (review: RoomReview) =>
+  `${review.user.surname?.[0] ?? ''}${review.user.name?.[0] ?? ''}`.toUpperCase();
 
 const showPreviousPhoto = () => {
   if (photoUrls.value.length <= 1) return;
@@ -268,11 +506,65 @@ const handleImageError = (event: Event) => {
   image.style.display = 'none';
 };
 
+const fetchRoom = async () => {
+  const res = await client.get<Room>(`/rooms/by-id/${route.params.id}`);
+  room.value = res.data;
+  selectedPhotoIndex.value = 0;
+};
+
+const fetchReviews = async () => {
+  const res = await client.get<RoomReview[]>(
+    `/reviews/by-room/${route.params.id}`,
+  );
+  reviews.value = res.data;
+};
+
+const fetchCompletedReservationAccess = async () => {
+  if (!isAuthenticated.value || !isGuest.value) return;
+
+  try {
+    const res = await client.get<Reservation[]>('/reservations/my');
+    hasCompletedReservation.value = res.data.some(
+      (reservation) =>
+        reservation.room?.id === route.params.id &&
+        reservation.reservationStatus?.id === 4,
+    );
+  } catch (err) {
+    console.error('Ошибка загрузки броней:', err);
+  }
+};
+
+const handleReviewSubmit = async () => {
+  reviewSubmitting.value = true;
+  reviewError.value = '';
+  reviewSuccess.value = false;
+
+  try {
+    await client.post('/reviews', {
+      roomId: route.params.id,
+      rating: reviewForm.value.rating,
+      text: reviewForm.value.text,
+    });
+    reviewForm.value = {
+      rating: 5,
+      text: '',
+    };
+    reviewSuccess.value = true;
+    await Promise.all([fetchRoom(), fetchReviews()]);
+  } catch (err) {
+    reviewError.value = getErrorMessage(err, 'Ошибка сохранения отзыва');
+  } finally {
+    reviewSubmitting.value = false;
+  }
+};
+
 onMounted(async () => {
   try {
-    const res = await client.get(`/rooms/by-id/${route.params.id}`);
-    room.value = res.data;
-    selectedPhotoIndex.value = 0;
+    await Promise.all([
+      fetchRoom(),
+      fetchReviews(),
+      fetchCompletedReservationAccess(),
+    ]);
   } catch (err) {
     console.error('Ошибка загрузки номера:', err);
   } finally {
@@ -362,5 +654,128 @@ onMounted(async () => {
   height: 100%;
   object-fit: cover;
   width: 100%;
+}
+
+.review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.review-item {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%);
+  border: 1px solid #e1e4ef;
+  border-left: 5px solid #4c4993;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.reviews-head,
+.review-top,
+.review-author,
+.my-review-note {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.reviews-head,
+.review-top {
+  justify-content: space-between;
+}
+
+.reviews-score {
+  border: 1px solid;
+  border-radius: 8px;
+  min-width: 96px;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.reviews-score span {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.reviews-score small {
+  display: block;
+  line-height: 1.1;
+}
+
+.rating-pill {
+  border: 1px solid;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.review-avatar {
+  align-items: center;
+  background-color: #4c4993;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  flex: 0 0 38px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.review-text {
+  background-color: #f8f9fb;
+  border-radius: 8px;
+  color: #2d2640;
+  line-height: 1.55;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+}
+
+.review-text::before {
+  color: #4c4993;
+  content: '“';
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 0;
+  margin-right: 4px;
+  vertical-align: -0.2rem;
+}
+
+.review-form {
+  background-color: #f8f9fb;
+  border: 1px solid #e1e4ef;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.rating-picker {
+  display: flex;
+  gap: 8px;
+}
+
+.rating-choice {
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  color: #4c4993;
+  font-weight: 700;
+  height: 38px;
+  width: 38px;
+}
+
+.rating-choice.active {
+  border: 1px solid;
+}
+
+.my-review-note {
+  background-color: #f8f9fb;
+  border: 1px solid #e1e4ef;
+  border-radius: 8px;
+  padding: 12px 14px;
 }
 </style>

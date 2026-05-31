@@ -22,6 +22,7 @@
               <th>Тип</th>
               <th>Статус</th>
               <th>Цена/ночь</th>
+              <th>Рейтинг</th>
               <th>Этаж</th>
               <th>Вместимость</th>
               <th>Удобства</th>
@@ -46,6 +47,14 @@
                 </span>
               </td>
               <td>{{ room.pricePerNight }} ₽</td>
+              <td>
+                <span
+                  class="rating-pill"
+                  :style="getRatingBadgeStyle(room.rating)"
+                >
+                  ★ {{ formatRating(room.rating) }}
+                </span>
+              </td>
               <td>{{ room.floor ?? '—' }}</td>
               <td>{{ room.capacity }}</td>
               <td>
@@ -66,6 +75,14 @@
               <td class="text-end pe-3">
                 <!-- Кнопки для админа -->
                 <template v-if="isAdmin">
+                  <button
+                    v-if="!room.deleted_at"
+                    class="btn btn-sm me-1"
+                    style="background-color: #a1cdc4; color: #1a3c34"
+                    @click="openReviewsModal(room)"
+                  >
+                    ★
+                  </button>
                   <button
                     v-if="!room.deleted_at"
                     class="btn btn-sm me-1"
@@ -115,7 +132,7 @@
               </td>
             </tr>
             <tr v-if="rooms.length === 0">
-              <td colspan="8" class="text-center py-4 text-muted">
+              <td colspan="9" class="text-center py-4 text-muted">
                 Нет номеров
               </td>
             </tr>
@@ -314,6 +331,87 @@
       </div>
     </div>
 
+    <!-- Модалка отзывов -->
+    <div
+      v-if="showReviewsModal"
+      class="modal fade show d-block"
+      tabindex="-1"
+      style="background-color: rgba(0, 0, 0, 0.5)"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div
+            class="modal-header"
+            style="background-color: #4c4993; color: #fff"
+          >
+            <h5 class="modal-title">
+              Отзывы: номер {{ reviewedRoom?.roomNumber }}
+            </h5>
+            <button
+              class="btn-close btn-close-white"
+              @click="closeReviewsModal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <p v-if="reviewError" class="alert alert-danger">
+              {{ reviewError }}
+            </p>
+            <div v-if="reviewsLoading" class="text-center py-4">
+              <div class="spinner-border" role="status"></div>
+            </div>
+            <div v-else-if="roomReviews.length === 0" class="text-muted">
+              Отзывов пока нет
+            </div>
+            <div v-else class="review-list">
+              <div
+                v-for="review in roomReviews"
+                :key="review.id"
+                class="review-row"
+                :style="getReviewCardStyle(review.rating)"
+              >
+                <div class="review-content">
+                  <div class="review-top">
+                    <div class="review-author">
+                      <div class="review-avatar">
+                        {{ getReviewInitials(review) }}
+                      </div>
+                      <div>
+                        <div class="fw-semibold">
+                          {{ review.user.surname }} {{ review.user.name }}
+                        </div>
+                        <small class="text-muted">
+                          {{ formatDate(review.createdAt) }}
+                        </small>
+                      </div>
+                    </div>
+                    <div
+                      class="rating-pill"
+                      :style="getRatingBadgeStyle(review.rating)"
+                    >
+                      ★ {{ review.rating }} · {{ getRatingLabel(review.rating) }}
+                    </div>
+                  </div>
+                  <p class="review-text">{{ review.text }}</p>
+                </div>
+                <button
+                  class="btn btn-sm btn-danger"
+                  :disabled="reviewsLoading"
+                  @click="handleDeleteReview(review.id)"
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="closeReviewsModal">
+              Закрыть
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Модалка удаления -->
     <div
       v-if="showDeleteModal"
@@ -386,6 +484,7 @@ interface Room {
   roomsType: RoomType | null;
   roomsStatus: RoomStatus | null;
   pricePerNight: number;
+  rating: number;
   floor: number | null;
   capacity: number;
   bedsCount: number;
@@ -393,6 +492,24 @@ interface Room {
   amenities: Amenity[];
   photos: string[];
   deleted_at: string | null;
+}
+interface RoomReview {
+  id: string;
+  text: string;
+  rating: number;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    surname: string;
+  };
+}
+interface ApiErrorResponse {
+  response?: {
+    data?: {
+      message?: string | string[];
+    };
+  };
 }
 
 const userStore = useUserStore();
@@ -424,6 +541,11 @@ const form = ref({
 
 const showDeleteModal = ref(false);
 const deletingRoom = ref<Room | null>(null);
+const showReviewsModal = ref(false);
+const reviewedRoom = ref<Room | null>(null);
+const roomReviews = ref<RoomReview[]>([]);
+const reviewsLoading = ref(false);
+const reviewError = ref('');
 
 const fetchRooms = async () => {
   try {
@@ -453,6 +575,47 @@ const getStatusStyle = (id: number | undefined) => {
   if (id === 3) return { backgroundColor: '#fde8e8', color: '#c0392b' };
   return {};
 };
+
+const formatRating = (rating: number | null | undefined) =>
+  (Number(rating) || 0).toFixed(1);
+
+const formatDate = (date: string) => new Date(date).toLocaleDateString('ru-RU');
+
+const getErrorMessage = (err: unknown, fallback: string) => {
+  const message = (err as ApiErrorResponse).response?.data?.message;
+  return Array.isArray(message) ? message.join(', ') : message || fallback;
+};
+
+const getRatingBadgeStyle = (rating: number | null | undefined) => {
+  const value = Number(rating) || 0;
+
+  if (value >= 4.5) {
+    return { backgroundColor: '#e7f6ef', color: '#1f7a4f', borderColor: '#9dd9bd' };
+  }
+  if (value >= 4) {
+    return { backgroundColor: '#edf1ff', color: '#4c4993', borderColor: '#bfc9ed' };
+  }
+  if (value >= 3) {
+    return { backgroundColor: '#fff6d8', color: '#8a6500', borderColor: '#efd57a' };
+  }
+  return { backgroundColor: '#fde8e8', color: '#c0392b', borderColor: '#f0b3b3' };
+};
+
+const getReviewCardStyle = (rating: number) => ({
+  borderLeftColor: getRatingBadgeStyle(rating).color,
+});
+
+const getRatingLabel = (rating: number | null | undefined) => {
+  const value = Number(rating) || 0;
+
+  if (value >= 4.5) return 'отлично';
+  if (value >= 4) return 'хорошо';
+  if (value >= 3) return 'нормально';
+  return 'спорно';
+};
+
+const getReviewInitials = (review: RoomReview) =>
+  `${review.user.surname?.[0] ?? ''}${review.user.name?.[0] ?? ''}`.toUpperCase();
 
 const resetForm = () => {
   form.value = {
@@ -552,8 +715,8 @@ const handleSubmit = async () => {
     }
     closeModal();
     await fetchRooms();
-  } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка сохранения';
+  } catch (err: unknown) {
+    error.value = getErrorMessage(err, 'Ошибка сохранения');
   } finally {
     loading.value = false;
   }
@@ -572,10 +735,52 @@ const handleDelete = async () => {
     showDeleteModal.value = false;
     deletingRoom.value = null;
     await fetchRooms();
-  } catch (err: any) {
-    error.value = err.response?.data?.message || 'Ошибка удаления';
+  } catch (err: unknown) {
+    error.value = getErrorMessage(err, 'Ошибка удаления');
   } finally {
     loading.value = false;
+  }
+};
+
+const openReviewsModal = async (room: Room) => {
+  reviewedRoom.value = room;
+  reviewError.value = '';
+  showReviewsModal.value = true;
+  await fetchRoomReviews(room.id);
+};
+
+const closeReviewsModal = () => {
+  showReviewsModal.value = false;
+  reviewedRoom.value = null;
+  roomReviews.value = [];
+  reviewError.value = '';
+};
+
+const fetchRoomReviews = async (roomId: string) => {
+  reviewsLoading.value = true;
+  try {
+    const res = await client.get<RoomReview[]>(`/reviews/by-room/${roomId}`);
+    roomReviews.value = res.data;
+  } catch (err) {
+    reviewError.value = getErrorMessage(err, 'Ошибка загрузки отзывов');
+  } finally {
+    reviewsLoading.value = false;
+  }
+};
+
+const handleDeleteReview = async (reviewId: string) => {
+  if (!reviewedRoom.value) return;
+
+  reviewsLoading.value = true;
+  reviewError.value = '';
+
+  try {
+    await client.delete(`/reviews/by-id/${reviewId}`);
+    await Promise.all([fetchRoomReviews(reviewedRoom.value.id), fetchRooms()]);
+  } catch (err) {
+    reviewError.value = getErrorMessage(err, 'Ошибка удаления отзыва');
+  } finally {
+    reviewsLoading.value = false;
   }
 };
 
@@ -583,7 +788,7 @@ const handleRestore = async (id: string) => {
   try {
     await client.post(`/rooms/restore/by-id/${id}`);
     await fetchRooms();
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Ошибка восстановления:', err);
   }
 };
@@ -636,5 +841,82 @@ onMounted(() => {
 .room-photo-item .btn {
   border-radius: 0;
   width: 100%;
+}
+
+.review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.review-row {
+  align-items: flex-start;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%);
+  border: 1px solid #e1e4ef;
+  border-left: 5px solid #4c4993;
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.review-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-top,
+.review-author {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.review-top {
+  justify-content: space-between;
+}
+
+.review-avatar {
+  align-items: center;
+  background-color: #4c4993;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  flex: 0 0 38px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.rating-pill {
+  border: 1px solid;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.review-text {
+  background-color: #f8f9fb;
+  border-radius: 8px;
+  color: #2d2640;
+  line-height: 1.5;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+}
+
+.review-text::before {
+  color: #4c4993;
+  content: '“';
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 0;
+  margin-right: 4px;
+  vertical-align: -0.2rem;
 }
 </style>

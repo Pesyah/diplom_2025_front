@@ -90,7 +90,7 @@
                 <small class="text-muted"> / ночь</small>
               </div>
               <div class="text-muted small">
-                👤 {{ room.capacity }} · 🛏 {{ room.bedsCount }} · 📍
+                ★ {{ formatRating(room.rating) }} · 👤 {{ room.capacity }} · 🛏 {{ room.bedsCount }} · 📍
                 {{ room.floor ?? '—' }} этаж
               </div>
             </div>
@@ -121,6 +121,7 @@ interface Room {
   roomsType: { id: number; name: string } | null;
   roomsStatus: { id: number; name: string } | null;
   pricePerNight: number;
+  rating: number;
   floor: number | null;
   capacity: number;
   bedsCount: number;
@@ -172,6 +173,9 @@ const getStatusStyle = (id: number | undefined) => {
   if (id === 3) return { backgroundColor: '#fde8e8', color: '#c0392b' };
   return {};
 };
+
+const formatRating = (rating: number | null | undefined) =>
+  (Number(rating) || 0).toFixed(1);
 
 const goToRoom = (id: string) => {
   router.push(`/rooms/${id}`);

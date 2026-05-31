@@ -75,6 +75,35 @@
               <p class="mb-0 small text-danger">{{ res.cancellationReason }}</p>
             </div>
 
+            <div
+              v-if="getReviewForReservation(res)"
+              class="review-note mb-3"
+            >
+              <div
+                class="review-note-rating"
+                :style="getRatingBadgeStyle(getReviewForReservation(res)?.rating)"
+              >
+                ★ {{ getReviewForReservation(res)?.rating }}
+              </div>
+              <div>
+                <small class="text-muted">Ваш отзыв по этому номеру</small>
+                <p class="review-note-text mb-0 small">
+                  {{ getReviewForReservation(res)?.text }}
+                </p>
+              </div>
+            </div>
+
+            <router-link
+              v-else-if="
+                res.reservationStatus?.id === 4 && res.room?.id
+              "
+              :to="`/rooms/${res.room.id}`"
+              class="btn btn-sm w-100 mb-2"
+              style="background-color: #bfc9ed; color: #2d2640"
+            >
+              Оставить отзыв
+            </router-link>
+
             <!-- Кнопка отмены -->
             <button
               v-if="[1, 2].includes(res.reservationStatus?.id)"
@@ -154,10 +183,21 @@ interface Reservation {
   cancellationReason: string | null;
   createdAt: string;
   reservationStatus: { id: number; name: string } | null;
-  room: { roomNumber: string; roomsType: { name: string } | null } | null;
+  room: {
+    id: string;
+    roomNumber: string;
+    roomsType: { name: string } | null;
+  } | null;
+}
+interface RoomReview {
+  id: string;
+  roomId: string;
+  text: string;
+  rating: number;
 }
 
 const reservations = ref<Reservation[]>([]);
+const reviewsByRoomId = ref<Record<string, RoomReview>>({});
 const loading = ref(true);
 
 const showCancelModal = ref(false);
@@ -173,7 +213,7 @@ const formatDate = (d: string) =>
   });
 
 const getStatusStyle = (id: number | undefined) => {
-  const map: Record<number, any> = {
+  const map: Record<number, Record<string, string>> = {
     1: { backgroundColor: '#f5f0eb', color: '#856404' },
     2: { backgroundColor: '#bfc9ed', color: '#2d2640' },
     3: { backgroundColor: '#a1cdc4', color: '#1a3c34' },
@@ -181,6 +221,26 @@ const getStatusStyle = (id: number | undefined) => {
     5: { backgroundColor: '#fde8e8', color: '#c0392b' },
   };
   return map[id ?? 0] || {};
+};
+
+const getReviewForReservation = (reservation: Reservation) => {
+  const roomId = reservation.room?.id;
+  return roomId ? reviewsByRoomId.value[roomId] : undefined;
+};
+
+const getRatingBadgeStyle = (rating: number | null | undefined) => {
+  const value = Number(rating) || 0;
+
+  if (value >= 4.5) {
+    return { backgroundColor: '#e7f6ef', color: '#1f7a4f', borderColor: '#9dd9bd' };
+  }
+  if (value >= 4) {
+    return { backgroundColor: '#edf1ff', color: '#4c4993', borderColor: '#bfc9ed' };
+  }
+  if (value >= 3) {
+    return { backgroundColor: '#fff6d8', color: '#8a6500', borderColor: '#efd57a' };
+  }
+  return { backgroundColor: '#fde8e8', color: '#c0392b', borderColor: '#f0b3b3' };
 };
 
 const openCancelModal = (res: Reservation) => {
@@ -206,7 +266,7 @@ const handleCancel = async () => {
 
 const fetchReservations = async () => {
   try {
-    const res = await client.get('/reservations/my');
+    const res = await client.get<Reservation[]>('/reservations/my');
     reservations.value = res.data;
   } catch (err) {
     console.error('Ошибка загрузки броней:', err);
@@ -215,7 +275,51 @@ const fetchReservations = async () => {
   }
 };
 
-onMounted(() => {
-  fetchReservations();
+const fetchMyReviews = async () => {
+  try {
+    const res = await client.get<RoomReview[]>('/reviews/my');
+    reviewsByRoomId.value = res.data.reduce<Record<string, RoomReview>>(
+      (acc, review) => {
+        acc[review.roomId] = review;
+        return acc;
+      },
+      {},
+    );
+  } catch (err) {
+    console.error('Ошибка загрузки отзывов:', err);
+  }
+};
+
+onMounted(async () => {
+  await Promise.all([fetchReservations(), fetchMyReviews()]);
 });
 </script>
+
+<style scoped>
+.review-note {
+  align-items: flex-start;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fb 100%);
+  border: 1px solid #e1e4ef;
+  border-left: 5px solid #4c4993;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.review-note-rating {
+  border: 1px solid;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 7px 10px;
+}
+
+.review-note-text {
+  color: #2d2640;
+  line-height: 1.45;
+  margin-top: 3px;
+}
+</style>
