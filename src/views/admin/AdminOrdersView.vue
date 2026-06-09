@@ -171,7 +171,8 @@ const filterByValue = (value: string) => {
 };
 
 const filteredOrders = computed(() => {
-  return orders.value.filter((order) => {
+  return orders.value
+    .filter((order) => {
     const totalPrice = Number(order.totalValue ?? order.sum ?? 0);
     const date = getOrderDate(order);
 
@@ -214,14 +215,24 @@ const filteredOrders = computed(() => {
     }
 
     return true;
-  });
+    })
+    .sort((a, b) => {
+      const da = getOrderDate(a)?.getTime() ?? 0;
+      const db = getOrderDate(b)?.getTime() ?? 0;
+      return db - da; // newest first
+    });
 });
 
 const loadOrders = async () => {
   loading.value = true;
   try {
     const res = await client.get('/orders/admin/all');
-    orders.value = res.data;
+    orders.value = Array.isArray(res.data) ? res.data.slice() : [];
+    orders.value.sort((a, b) => {
+      const da = getOrderDate(a)?.getTime() ?? 0;
+      const db = getOrderDate(b)?.getTime() ?? 0;
+      return db - da;
+    });
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Ошибка загрузки';
   } finally {
